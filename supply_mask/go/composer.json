@@ -1,0 +1,13 @@
+{
+    "name": "neu/urkunden",
+    "authors": [
+        {
+            "name": "Corbinian Schuessler",
+            "email": "corbinianschuessler@gmx.de"
+        }
+    ],
+    "require": {
+        "setasign/fpdf": "^1.9",
+        "setasign/fpdi": "^2.6"
+    }
+}

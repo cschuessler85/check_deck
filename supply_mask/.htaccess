@@ -1,0 +1,9 @@
+# Schuetzt den Archivunterordner .old/ vor direktem HTTP-Zugriff,
+# falls die .htaccess darin einmal nicht greifen sollte.
+<IfModule mod_authz_core.c>
+    <FilesMatch "(^|/)\.old(/|$)">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+
+Options -Indexes

@@ -1,0 +1,3 @@
+/config/http/.htpasswd
+/storage/backups/*.sql
+/storage/logs/*.log
