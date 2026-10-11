@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# Erzwingt HTTPS auch dann, wenn der Nutzer den go-Ordner direkt per HTTP aufruft.
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+DirectoryIndex urkunde.php

@@ -1,0 +1,72 @@
+# --- Umgebungs- und Zugangsdaten ---
+# .env bleibt im Git (DB-Zugangsdaten wie gewuenscht erhalten)
+live_app/config/http/.htpasswd
+
+# --- Datenbanken und Laufzeitdaten ---
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+data.sqlite
+data_test_sync.sqlite
+
+# --- JSON- und CSV-Daten mit personenbezogenen Daten ---
+*.json
+!package.json
+!composer.json
+!composer.lock
+!tsconfig*.json
+!jsconfig.json
+!config.json
+24hschwimmen.json
+supply_mask/.old/schwimmer-final.csv
+supply_mask/.old/teilnehmer.csv
+supply_mask/go/schwimmer-final.csv
+
+# --- Sessions, Backups und Logs ---
+/storage/
+/storage/sessions/
+/storage/backups/
+/storage/logs/
+live_app/storage/sessions/
+live_app/storage/backups/*.sql
+live_app/storage/logs/*.log
+*.log
+
+# --- SQL-Dumps ---
+*.sql
+!setup.sql
+
+# --- Temporäre Uploads ---
+tmp_uploads/
+live_app/tmp_uploads/
+
+# --- Alter/veralteter Datenbestand (DSGVO-relevant) ---
+supply_mask/.old/
+
+# --- Debug-Hilfen ---
+.dbg/
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Release / Build-Artefakte ---
+*.zip
+*.tar.gz
+*.bak
+*.old
