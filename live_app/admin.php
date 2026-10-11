@@ -676,7 +676,7 @@ if ($is_logged_in) {
             $user_error = 'Sicherheitsprüfung fehlgeschlagen. Bitte Seite neu laden und erneut versuchen.';
         } elseif (!$users_enabled) {
             $user_error = 'Nutzerverwaltung ist nicht verfügbar.';
-        } elseif (!auth_can($pdo, 'users.manage')) {
+        } elseif (!$setup_mode && !auth_can($pdo, 'users.manage')) {
             $user_error = 'Zugriff verweigert.';
         } else {
             $action = (string)$_POST['user_action'];
@@ -701,6 +701,20 @@ if ($is_logged_in) {
                     }
                     if ($adminCount >= 1) {
                         $user_error = 'Es gibt bereits einen Admin. Es darf global nur einen Admin geben.';
+                    } else {
+                        try {
+                            $stmt = $pdo->prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)');
+                            $stmt->execute([$new_username, password_hash($new_password, PASSWORD_DEFAULT), $new_role]);
+                            $new_id = (int)$pdo->lastInsertId();
+                            if ($setup_mode) {
+                                auth_set_session($new_id, $new_username, $new_role);
+                                header('Location: admin.php');
+                                exit;
+                            }
+                            $user_success = 'Nutzer wurde angelegt.';
+                        } catch (Throwable $e) {
+                            $user_error = 'Nutzer konnte nicht angelegt werden.';
+                        }
                     }
                         } else {
                     try {
