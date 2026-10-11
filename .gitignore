@@ -70,3 +70,6 @@ Thumbs.db
 *.tar.gz
 *.bak
 *.old
+
+# --- Externe Projekte (nicht im Repo) ---
+lane_counter/
