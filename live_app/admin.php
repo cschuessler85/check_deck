@@ -1324,6 +1324,11 @@ if ($can_manage_users) {
       .admin-page-sidebar {
         min-width: 0;
         align-self: start;
+        position: sticky;
+        top: 12px;
+        max-height: calc(100vh - 24px);
+        overflow-y: auto;
+        scrollbar-width: thin;
       }
 
       .admin-mobile-menu-toggle,
@@ -1487,10 +1492,10 @@ if ($can_manage_users) {
 
       .admin-shell-panel {
         display: grid;
-        gap: 14px;
+        gap: 8px;
         align-content: start;
-        padding: 18px;
-        border-radius: 20px;
+        padding: 12px;
+        border-radius: 18px;
         background:
           linear-gradient(180deg, rgba(227, 6, 19, 0.05) 0%, rgba(227, 6, 19, 0) 180px),
           linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
@@ -1508,10 +1513,35 @@ if ($can_manage_users) {
         margin: 0 !important;
       }
 
+      .admin-page-sidebar .admin-session-info {
+        padding: 10px 12px;
+      }
+
+      .admin-page-sidebar .admin-session-avatar {
+        width: 34px;
+        height: 34px;
+        flex: 0 0 34px;
+        font-size: 16px;
+        border-radius: 10px;
+      }
+
+      .admin-page-sidebar .admin-session-facts {
+        gap: 4px;
+      }
+
+      .admin-page-sidebar .admin-session-fact {
+        grid-template-columns: auto 1fr;
+        gap: 6px;
+      }
+
+      .admin-page-sidebar .admin-session-fact-value {
+        font-size: 13px;
+      }
+
       .admin-shell-intro {
         display: grid;
-        gap: 8px;
-        padding-bottom: 14px;
+        gap: 4px;
+        padding-bottom: 8px;
         border-bottom: 1px solid rgba(40, 50, 70, 0.16);
       }
 
@@ -1530,15 +1560,15 @@ if ($can_manage_users) {
 
       .admin-side-list {
         display: grid;
-        gap: 12px;
+        gap: 6px;
       }
 
       .admin-side-group {
         display: grid;
-        gap: 10px;
-        padding: 14px;
+        gap: 6px;
+        padding: 8px;
         border: 1px solid rgba(40, 50, 70, 0.12);
-        border-radius: 16px;
+        border-radius: 12px;
         background: rgba(255, 255, 255, 0.42);
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.56);
       }
@@ -1566,12 +1596,17 @@ if ($can_manage_users) {
         letter-spacing: 0.04em;
       }
 
-      .admin-shell-panel .admin-nav,
-      .admin-shell-panel .admin-anchor-nav,
       .admin-shell-panel .admin-links-grid {
         display: grid;
-        grid-template-columns: 1fr;
-        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .admin-shell-panel .admin-nav,
+      .admin-shell-panel .admin-anchor-nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
       }
 
       .admin-shell-panel .admin-session-actions {
@@ -1585,26 +1620,36 @@ if ($can_manage_users) {
       .admin-shell-panel .admin-controls-grid {
         display: grid;
         grid-template-columns: 1fr;
-        gap: 12px;
+        gap: 6px;
       }
 
       .admin-shell-panel .admin-controls-grid .field {
         margin: 0;
       }
 
-      .admin-shell-panel .admin-search-form,
-      .admin-shell-panel .admin-search-actions {
+      .admin-shell-panel .admin-search-form {
         flex-direction: column;
         align-items: stretch;
       }
 
+      .admin-shell-panel .admin-search-actions {
+        flex-direction: row;
+        align-items: stretch;
+        gap: 6px;
+      }
+
+      .admin-shell-panel .admin-search-actions > * {
+        flex: 1 1 0;
+        min-width: 0;
+      }
+
       .admin-shell-panel .admin-search-form {
-        gap: 8px;
+        gap: 6px;
       }
 
       .admin-shell-panel .admin-search-form input,
       .admin-shell-panel .admin-controls-grid input {
-        min-height: 48px;
+        min-height: 38px;
       }
 
       .admin-shell-panel .admin-link-btn,
@@ -1612,9 +1657,11 @@ if ($can_manage_users) {
       .admin-shell-panel .admin-anchor-btn,
       .admin-shell-panel .admin-session-actions > * {
         width: 100%;
-        min-height: 48px;
+        min-height: 38px;
+        padding: 7px 12px;
+        font-size: 14px;
         justify-content: flex-start;
-        border-radius: 14px;
+        border-radius: 10px;
       }
 
       .admin-shell-panel .admin-session-actions > * {
