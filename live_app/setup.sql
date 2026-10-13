@@ -90,3 +90,34 @@ CREATE TABLE IF NOT EXISTS lane_timeframes (
 )
   DEFAULT CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS access_tokens (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  token_hash CHAR(64) NOT NULL,
+  description VARCHAR(200) NOT NULL,
+  created_by INT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME NULL,
+  last_used_at DATETIME NULL,
+  revoked TINYINT(1) NOT NULL DEFAULT 0,
+  UNIQUE KEY uniq_token_hash (token_hash),
+  KEY idx_access_tokens_created_by (created_by),
+  CONSTRAINT fk_access_tokens_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+)
+  DEFAULT CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS webauthn_credentials (
+  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  credential_id VARCHAR(512) NOT NULL,
+  public_key TEXT NOT NULL,
+  name VARCHAR(100) NOT NULL DEFAULT '',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_used_at DATETIME NULL,
+  UNIQUE KEY uniq_credential_id (credential_id),
+  KEY idx_webauthn_user_id (user_id),
+  CONSTRAINT fk_webauthn_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)
+  DEFAULT CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;

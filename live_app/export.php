@@ -1102,15 +1102,15 @@ try {
             <span class="admin-session-badge"><?= export_html($currentRole) ?></span>
           </div>
           <div class="sidebar-links">
-            <button type="button" class="btn btn-secondary" id="theme_toggle" aria-pressed="false">Dunkelmodus</button>
-            <a class="btn btn-secondary" href="admin.php">Admin</a>
+            <button type="button" class="btn btn-secondary" id="theme_toggle" aria-pressed="false" title="Wechselt zwischen hellem und dunklem Design">Dunkelmodus</button>
+            <a class="btn btn-secondary" href="admin.php" title="Wechselt zur Admin-Oberfläche">Admin</a>
             <?php if ($canDashboardPage): ?>
-              <a class="btn btn-secondary" href="dashboard/dashboard.php">Dashboard</a>
+              <a class="btn btn-secondary" href="dashboard/dashboard.php" title="Öffnet das Live-Dashboard">Dashboard</a>
             <?php endif; ?>
             <?php if ($canNumbersPage): ?>
-              <a class="btn btn-secondary" href="numbers.php">Startnummern</a>
+              <a class="btn btn-secondary" href="numbers.php" title="Öffnet die Startnummernverwaltung">Startnummern</a>
             <?php endif; ?>
-            <form method="post" action="admin.php" style="display:inline;"><input type="hidden" name="action" value="logout"><input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>"><button type="submit" class="btn btn-secondary">Abmelden</button></form>
+            <form method="post" action="admin.php" style="display:inline;"><input type="hidden" name="action" value="logout"><input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>"><button type="submit" class="btn btn-secondary" title="Vom Datenexport abmelden">Abmelden</button></form>
           </div>
         </div>
       </aside>
@@ -1172,8 +1172,8 @@ try {
           <fieldset>
             <legend>Spalten auswählen</legend>
             <div class="inline-actions">
-              <button class="btn" type="button" id="select-all-columns">Alle auswählen</button>
-              <button class="btn" type="button" id="reset-default-columns">Standard</button>
+              <button class="btn" type="button" id="select-all-columns" title="Wählt alle verfügbaren Exportspalten aus">Alle auswählen</button>
+              <button class="btn" type="button" id="reset-default-columns" title="Setzt die Spaltenauswahl auf die Standardwerte zurück">Standard</button>
             </div>
             <div class="checkbox-grid">
               <?php foreach ($source['columns'] as $columnKey => $column): ?>
@@ -1230,9 +1230,9 @@ try {
         </div>
 
         <div class="actions">
-          <a class="btn btn-secondary" href="export.php?source=<?= urlencode($sourceKey) ?>">Zurücksetzen</a>
-          <button class="btn btn-yellow" type="submit" name="action" value="preview">Vorschau laden</button>
-          <button class="btn btn-primary" type="submit" name="action" value="export">CSV exportieren</button>
+          <a class="btn btn-secondary" href="export.php?source=<?= urlencode($sourceKey) ?>" title="Setzt alle Exporteinstellungen auf die Standardwerte zurück">Zurücksetzen</a>
+          <button class="btn btn-yellow" type="submit" name="action" value="preview" title="Zeigt eine Vorschau der ausgewählten Spalten und Daten an">Vorschau laden</button>
+          <button class="btn btn-primary" type="submit" name="action" value="export" title="Exportiert die Daten im CSV-Format mit den ausgewählten Spalten">CSV exportieren</button>
         </div>
       </form>
 

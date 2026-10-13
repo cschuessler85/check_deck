@@ -739,6 +739,7 @@ if (isset($_GET['format']) && (string)$_GET['format'] === 'json') {
         <?php if (!$isStandalone): ?>
         <section class="toolbar">
             <div class="toolbar-title">
+                <img src="<?php echo escape($rootBase . '/assets/logo.png'); ?>" alt="DLRG Sankt Augustin e.V." width="1714" height="332" decoding="async" style="max-width:180px;height:auto;margin-bottom:10px;" />
                 <div class="eyebrow">
                     <span class="live-dot" id="liveDot"></span>
                     <span>Event Live Kiosk</span>

@@ -15,6 +15,8 @@
   --dlrg-blau: #0569b4;
   --dlrg-schwarz: #575756;
   --page-frame-max-width: 1120px;
+  --spacing-base: 12px;
+  --spacing-lg: 18px;
   --font-family-ui: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   --font-size-body: 16px;
   --font-size-label: 16px;
@@ -93,9 +95,9 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--spacing-base);
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-bottom: var(--spacing-base);
 }
 
 .reg-header {
@@ -143,7 +145,7 @@ header {
 }
 
 .reg-form > .field + .field {
-  margin-top: 14px;
+  margin-top: var(--spacing-base);
 }
 
 .brand {
@@ -208,7 +210,7 @@ header {
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: var(--spacing-lg);
 }
 
 @media (max-width: 720px) {
@@ -220,7 +222,7 @@ header {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacing-base);
 }
 
 label {
@@ -426,9 +428,9 @@ select:focus {
 
 .actions {
   display: flex;
-  gap: 10px;
+  gap: var(--spacing-base);
   flex-wrap: wrap;
-  margin-top: 16px;
+  margin-top: var(--spacing-base);
 }
 
 .btn {
@@ -514,7 +516,7 @@ select:focus {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #fff;
-  padding: 14px;
+  padding: var(--spacing-base);
 }
 
 .page-shell {
@@ -1020,10 +1022,22 @@ html[data-theme="dark"] .admin-session-note.is-warn {
 
 /* @doc-note Im kompakten Sitzungsblock bleiben beide Aktionen gleich breit und nebeneinander, auch wenn die Sidebar schmaler wird. */
 .page-sidebar .admin-session-actions > .btn,
-.page-sidebar .admin-session-actions > a {
+.page-sidebar .admin-session-actions > a,
+.page-sidebar .admin-session-actions > form {
   flex: 1 1 0;
   width: auto;
   min-width: 0;
+  min-height: 38px;
+  margin: 0;
+}
+
+.page-sidebar .admin-session-actions > form {
+  display: flex;
+}
+
+.page-sidebar .admin-session-actions > form > .btn {
+  width: 100%;
+  flex: 1 1 auto;
   min-height: 38px;
   padding-inline: 10px;
   padding-block: 8px;

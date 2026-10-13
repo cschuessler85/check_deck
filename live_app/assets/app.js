@@ -31,6 +31,18 @@ window.appBack = (fallbackUrl) => {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  // @doc-section scroll-to-top
+  // @doc-purpose Setzt beim Laden jeder Seite die Scrollposition auf den oberen Viewport-Rand.
+  try {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const adminScroll = document.getElementById('admin_content_scroll');
+    if (adminScroll) {
+      adminScroll.scrollTop = 0;
+    }
+  } catch (e) {}
+
   // @doc-section alerts
   // @doc-purpose Steuert das automatische Ausblenden neuer und bestehender Statusmeldungen.
   // @doc-ui-flow alerts-autohide

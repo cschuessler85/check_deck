@@ -439,11 +439,11 @@ if ($errorMessage === '') {
             <span class="admin-session-badge"><?= sync_escape($currentRole) ?></span>
           </div>
           <div class="sidebar-links">
-            <button type="button" class="btn btn-secondary" id="theme_toggle" aria-pressed="false">Dunkelmodus</button>
-            <a class="btn btn-secondary" href="admin.php">Admin</a>
-            <a class="btn btn-secondary" href="numbers.php">Startnummern</a>
-            <a class="btn btn-secondary" href="export.php">Datenexport</a>
-            <form method="post" action="admin.php" style="display:inline;"><input type="hidden" name="action" value="logout"><input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>"><button type="submit" class="btn btn-secondary">Abmelden</button></form>
+            <button type="button" class="btn btn-secondary" id="theme_toggle" aria-pressed="false" title="Wechselt zwischen hellem und dunklem Design">Dunkelmodus</button>
+            <a class="btn btn-secondary" href="admin.php" title="Wechselt zur Admin-Oberfläche">Admin</a>
+            <a class="btn btn-secondary" href="numbers.php" title="Öffnet die Startnummernverwaltung">Startnummern</a>
+            <a class="btn btn-secondary" href="export.php" title="Öffnet den Datenexport">Datenexport</a>
+            <form method="post" action="admin.php" style="display:inline;"><input type="hidden" name="action" value="logout"><input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>"><button type="submit" class="btn btn-secondary" title="Von der Synchronisation abmelden">Abmelden</button></form>
           </div>
         </div>
       </aside>
@@ -494,11 +494,11 @@ if ($errorMessage === '') {
           <form method="post" action="sync.php" style="display:inline;">
             <input type="hidden" name="action" value="run">
             <input type="hidden" name="csrf_token" value="<?= sync_escape(csrf_token_get()) ?>">
-            <button class="btn btn-primary" type="submit" onclick="return confirm('Synchronisation jetzt durchfuehren? Die Stammdaten der Live-Datenbank werden aktualisiert.');">
+            <button class="btn btn-primary" type="submit" onclick="return confirm('Synchronisation jetzt durchfuehren? Die Stammdaten der Live-Datenbank werden aktualisiert.');" title="Führt die Synchronisation der Live-Datenbank mit den Stammdaten durch">
               Sync ausf&uuml;hren (<?= (int)$preview['candidates'] ?> Eintr&auml;ge)
             </button>
           </form>
-          <a class="btn btn-secondary" href="sync.php">Vorschau aktualisieren</a>
+          <a class="btn btn-secondary" href="sync.php" title="Lädt die Vorschau der zu synchronisierenden Daten neu">Vorschau aktualisieren</a>
         </div>
 
         <?php if (!empty($preview['to_insert'])): ?>

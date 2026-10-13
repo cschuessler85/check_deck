@@ -595,17 +595,17 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
               </div>
               <div class="sidebar-links">
                 <?php if ($can_reserve): ?>
-                  <button class="btn btn-primary numbers-topbar-action" onclick="document.getElementById('modalReserve').setAttribute('aria-hidden', 'false')">+ Block / Nummer reservieren</button>
+                  <button class="btn btn-primary numbers-topbar-action" onclick="document.getElementById('modalReserve').setAttribute('aria-hidden', 'false')" title="Öffnet den Dialog zum Reservieren von Startnummernblöcken">+ Block / Nummer reservieren</button>
                 <?php endif; ?>
-                <button type="button" class="btn btn-secondary numbers-theme-toggle" id="theme_toggle" aria-pressed="false">Dunkelmodus</button>
-                <a class="btn btn-secondary" href="<?php echo escape($assetBase . '/admin.php'); ?>">Admin</a>
+                <button type="button" class="btn btn-secondary numbers-theme-toggle" id="theme_toggle" aria-pressed="false" title="Wechselt zwischen hellem und dunklem Design">Dunkelmodus</button>
+                <a class="btn btn-secondary" href="<?php echo escape($assetBase . '/admin.php'); ?>" title="Wechselt zur Admin-Oberfläche">Admin</a>
                 <?php if ($can_dashboard_page): ?>
-                  <a class="btn btn-secondary" href="dashboard/dashboard.php">Dashboard</a>
+                  <a class="btn btn-secondary" href="dashboard/dashboard.php" title="Öffnet das Live-Dashboard">Dashboard</a>
                 <?php endif; ?>
                 <?php if ($can_export_page): ?>
-                  <a class="btn btn-secondary" href="export.php">Datenexport</a>
+                  <a class="btn btn-secondary" href="export.php" title="Öffnet den Datenexport">Datenexport</a>
                 <?php endif; ?>
-                <form method="post" action="admin.php" style="display:inline;"><input type="hidden" name="action" value="logout"><input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>"><button type="submit" class="btn btn-secondary">Abmelden</button></form>
+                <form method="post" action="admin.php" style="display:inline;"><input type="hidden" name="action" value="logout"><input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>"><button type="submit" class="btn btn-secondary" title="Von der Startnummernverwaltung abmelden">Abmelden</button></form>
               </div>
             </div>
           </aside>
@@ -621,11 +621,11 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
 
         <div class="panel">
             <div class="tabs">
-                <button class="btn btn-primary tab-btn" onclick="switchTab(0)">001 - 200</button>
-                <button class="btn btn-secondary tab-btn" onclick="switchTab(1)">201 - 400</button>
-                <button class="btn btn-secondary tab-btn" onclick="switchTab(2)">401 - 600</button>
-                <button class="btn btn-secondary tab-btn" onclick="switchTab(3)">601 - 800</button>
-                <button class="btn btn-secondary tab-btn" onclick="switchTab(4)">801 - 999</button>
+                <button class="btn btn-primary tab-btn" onclick="switchTab(0)" title="Zeigt die Startnummern 001 bis 200">001 - 200</button>
+                <button class="btn btn-secondary tab-btn" onclick="switchTab(1)" title="Zeigt die Startnummern 201 bis 400">201 - 400</button>
+                <button class="btn btn-secondary tab-btn" onclick="switchTab(2)" title="Zeigt die Startnummern 401 bis 600">401 - 600</button>
+                <button class="btn btn-secondary tab-btn" onclick="switchTab(3)" title="Zeigt die Startnummern 601 bis 800">601 - 800</button>
+                <button class="btn btn-secondary tab-btn" onclick="switchTab(4)" title="Zeigt die Startnummern 801 bis 999">801 - 999</button>
             </div>
             
             <div class="filter-bar">
@@ -659,8 +659,8 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
                      data-info="<?php echo strtolower(escape($info)); ?>"
                      data-num="<?php echo $n['nummer']; ?>"
                      <?php
-                        $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
-                        echo $numbers_interactive ? ('onclick="openNumModal(' . (int)$n['nummer'] . ', ' . json_encode((string)$n['status'], $jsonFlags) . ', ' . json_encode($info, $jsonFlags) . ')"') : '';
+                        $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS;
+                        echo $numbers_interactive ? ("onclick='openNumModal(" . (int)$n['nummer'] . ", " . json_encode((string)$n['status'], $jsonFlags) . ", " . json_encode($info, $jsonFlags) . ")'") : '';
                      ?>>
                     <div class="number"><?php echo $numStr; ?></div>
                     <div class="info" title="<?php echo escape($info); ?>"><?php echo $info === '' ? 'Frei' : escape($info); ?></div>
@@ -678,7 +678,7 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
       <div class="modal-panel" style="max-width: 500px;">
         <div class="modal-header">
           <h2 class="modal-title">Nummern reservieren</h2>
-          <button type="button" class="modal-close" onclick="document.getElementById('modalReserve').setAttribute('aria-hidden', 'true')" aria-label="Schließen">&times;</button>
+          <button type="button" class="modal-close" onclick="document.getElementById('modalReserve').setAttribute('aria-hidden', 'true')" aria-label="Schließen" title="Schließt den Reservierungsdialog">&times;</button>
         </div>
         <div style="margin-top: 16px;">
           <p class="muted">Geben Sie einen Bereich ein. Für eine einzelne Nummer geben Sie bei Start und Ende dieselbe Zahl ein.</p>
@@ -700,7 +700,7 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
                   <input type="text" name="reserviert_fuer" required />
               </div>
               <div class="actions">
-                  <button class="btn btn-primary" type="submit">Reservieren</button>
+                  <button class="btn btn-primary" type="submit" title="Reserviert den eingegebenen Startnummernbereich">Reservieren</button>
               </div>
           </form>
         </div>
@@ -712,7 +712,7 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
       <div class="modal-panel" style="max-width: 680px;">
         <div class="modal-header">
           <h2 class="modal-title">Startnummer <span id="m_num"></span></h2>
-          <button type="button" class="modal-close" onclick="document.getElementById('modalNum').setAttribute('aria-hidden', 'true')" aria-label="Schließen">&times;</button>
+          <button type="button" class="modal-close" onclick="document.getElementById('modalNum').setAttribute('aria-hidden', 'true')" aria-label="Schließen" title="Schließt den Startnummerndialog">&times;</button>
         </div>
         <div style="margin-top: 16px;">
           <div id="m_info_box" style="margin-bottom: 15px; font-size: 1.1em;"></div>
@@ -735,8 +735,8 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
               </div>
 
               <div class="actions" id="m_actions">
-                  <button class="btn btn-yellow" type="submit" id="btn_free">Nummer freigeben</button>
-                  <button class="btn btn-primary" type="submit" id="btn_assign" style="display:none;">Nummer zuweisen</button>
+                  <button class="btn btn-yellow" type="submit" id="btn_free" title="Gibt die aktuelle Startnummer wieder frei (entfernt die Reservierung)">Nummer freigeben</button>
+                  <button class="btn btn-primary" type="submit" id="btn_assign" style="display:none;" title="Weist die Startnummer dem ausgewählten Teilnehmer zu">Nummer zuweisen</button>
               </div>
           </form>
         </div>

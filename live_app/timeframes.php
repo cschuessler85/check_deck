@@ -431,34 +431,34 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
         }
         .timeframe-form {
             display: grid;
-            gap: 14px;
+            gap: var(--spacing-base);
         }
         .timeframe-form .schedule-grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 14px;
+            gap: var(--spacing-base);
         }
         .timeframe-form .schedule-card {
             border: 1px solid var(--border);
             border-radius: 12px;
             background: #f7f8fb;
-            padding: 14px;
+            padding: var(--spacing-base);
         }
         .timeframe-form .schedule-card h3 {
-            margin: 0 0 9px 0;
+            margin: 0 0 var(--spacing-base) 0;
             font-size: 15px;
             line-height: 1.2;
         }
         .timeframe-form .schedule-fields {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px 14px;
+            gap: var(--spacing-base);
             align-items: end;
         }
         .timeframe-form .meta-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px 14px;
+            gap: var(--spacing-base);
             align-items: end;
         }
         .timeframe-form .field-check {
@@ -756,19 +756,19 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
                         <span class="admin-session-stat"><?php echo (int)count($overlaps); ?> Konflikte</span>
                     </div>
                     <div class="sidebar-links">
-                        <button type="button" class="btn btn-secondary" id="theme_toggle" aria-pressed="false">Dunkelmodus</button>
-                        <a class="btn btn-yellow" href="timeframes.php?format=json">JSON exportieren</a>
-                        <a class="btn btn-secondary" href="admin.php">Admin</a>
+                        <button type="button" class="btn btn-secondary" id="theme_toggle" aria-pressed="false" title="Wechselt zwischen hellem und dunklem Design">Dunkelmodus</button>
+                        <a class="btn btn-yellow" href="timeframes.php?format=json" title="Exportiert alle Zeitfenster als JSON">JSON exportieren</a>
+                        <a class="btn btn-secondary" href="admin.php" title="Wechselt zur Admin-Oberfläche">Admin</a>
                         <?php if ($can_dashboard_page): ?>
-                            <a class="btn btn-secondary" href="dashboard/dashboard.php">Dashboard</a>
+                            <a class="btn btn-secondary" href="dashboard/dashboard.php" title="Öffnet das Live-Dashboard">Dashboard</a>
                         <?php endif; ?>
                         <?php if ($can_numbers_page): ?>
-                            <a class="btn btn-secondary" href="numbers.php">Startnummern</a>
+                            <a class="btn btn-secondary" href="numbers.php" title="Öffnet die Startnummernverwaltung">Startnummern</a>
                         <?php endif; ?>
                         <?php if ($can_export_page): ?>
-                            <a class="btn btn-secondary" href="export.php">Datenexport</a>
+                            <a class="btn btn-secondary" href="export.php" title="Öffnet den Datenexport">Datenexport</a>
                         <?php endif; ?>
-                        <form method="post" action="admin.php" style="display:inline;"><input type="hidden" name="action" value="logout"><input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>"><button type="submit" class="btn btn-secondary">Abmelden</button></form>
+                        <form method="post" action="admin.php" style="display:inline;"><input type="hidden" name="action" value="logout"><input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>"><button type="submit" class="btn btn-secondary" title="Von der Zeitfensterverwaltung abmelden">Abmelden</button></form>
                     </div>
                 </div>
             </aside>
@@ -844,14 +844,14 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
                             </label>
                         </div>
                         <div class="field field-submit">
-                            <button class="btn btn-primary" type="submit"><?php echo $edit_row ? 'Speichern' : 'Anlegen'; ?></button>
+                            <button class="btn btn-primary" type="submit" title="Speichert das Zeitfenster mit den eingegebenen Daten"><?php echo $edit_row ? 'Speichern' : 'Anlegen'; ?></button>
                         </div>
                     </div>
 
                     <?php if ($edit_row): ?>
                         <div class="actions">
-                            <a class="btn btn-secondary" href="timeframes.php">Abbrechen</a>
-                            <button class="btn btn-yellow" type="submit" name="action" value="delete" onclick="return confirm('Zeitfenster wirklich löschen?');" formaction="timeframes.php">Löschen</button>
+                            <a class="btn btn-secondary" href="timeframes.php" title="Verwirft die Änderungen und kehrt zur Übersicht zurück">Abbrechen</a>
+                            <button class="btn btn-yellow" type="submit" name="action" value="delete" onclick="return confirm('Zeitfenster wirklich löschen?');" formaction="timeframes.php" title="Löscht dieses Zeitfenster dauerhaft (mit Bestätigung)">Löschen</button>
                         </div>
                     <?php endif; ?>
                 </form>
@@ -933,18 +933,18 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
                                     <td class="nowrap"><?php echo tf_escape((string)$row['sort_order']); ?></td>
                                     <td>
                                         <div class="timeframe-actions">
-                                            <a class="btn btn-small btn-secondary" href="timeframes.php?edit=<?php echo (int)$row['id']; ?>">Bearbeiten</a>
+                                            <a class="btn btn-small btn-secondary" href="timeframes.php?edit=<?php echo (int)$row['id']; ?>" title="Öffnet dieses Zeitfenster zur Bearbeitung">Bearbeiten</a>
                                             <form method="post" action="timeframes.php" style="display:inline;">
                                                 <input type="hidden" name="csrf_token" value="<?php echo tf_escape(csrf_token_get()); ?>">
                                                 <input type="hidden" name="action" value="toggle">
                                                 <input type="hidden" name="id" value="<?php echo (int)$row['id']; ?>">
-                                                <button class="btn btn-small btn-primary" type="submit"><?php echo ((int)$row['active'] === 1) ? 'Deaktivieren' : 'Aktivieren'; ?></button>
+                                                <button class="btn btn-small btn-primary" type="submit" title="<?php echo ((int)$row['active'] === 1) ? 'Deaktiviert dieses Zeitfenster' : 'Aktiviert dieses Zeitfenster'; ?>"><?php echo ((int)$row['active'] === 1) ? 'Deaktivieren' : 'Aktivieren'; ?></button>
                                             </form>
                                             <form method="post" action="timeframes.php" style="display:inline;">
                                                 <input type="hidden" name="csrf_token" value="<?php echo tf_escape(csrf_token_get()); ?>">
                                                 <input type="hidden" name="action" value="delete">
                                                 <input type="hidden" name="id" value="<?php echo (int)$row['id']; ?>">
-                                                <button class="btn btn-small btn-yellow" type="submit" onclick="return confirm('Zeitfenster wirklich löschen?');">Löschen</button>
+                                                <button class="btn btn-small btn-yellow" type="submit" onclick="return confirm('Zeitfenster wirklich löschen?');" title="Löscht dieses Zeitfenster dauerhaft">Löschen</button>
                                             </form>
                                         </div>
                                     </td>

@@ -419,6 +419,7 @@ $paidPct = $gesamt > 0 ? (int)round(($bezahlt / $gesamt) * 100) : 0;
         <div class="container dash-container">
             <div class="dash-head">
                 <div class="dash-title">
+                    <img src="<?php echo escape($rootBase . '/assets/logo.png'); ?>" alt="DLRG Sankt Augustin e.V." class="reg-logo" width="1714" height="332" decoding="async" style="max-width:220px;height:auto;margin-bottom:8px;" />
                     <div class="brand">
                         <h1>Dashboard</h1>
                         <span class="badge">Live</span>
@@ -432,15 +433,15 @@ $paidPct = $gesamt > 0 ? (int)round(($bezahlt / $gesamt) * 100) : 0;
                     </div>
                 </div>
                 <div class="dash-actions">
-                    <a class="btn btn-secondary" href="<?php echo escape($rootBase . '/admin.php'); ?>">Admin</a>
+                    <a class="btn btn-secondary" href="<?php echo escape($rootBase . '/admin.php'); ?>" title="Wechselt zur Admin-Oberfläche">Admin</a>
                     <?php if ($can_numbers): ?>
-                        <a class="btn btn-yellow" href="<?php echo escape($rootBase . '/numbers.php'); ?>">Startnummern</a>
+                        <a class="btn btn-yellow" href="<?php echo escape($rootBase . '/numbers.php'); ?>" title="Öffnet die Startnummernverwaltung">Startnummern</a>
                     <?php endif; ?>
                     <?php if ($can_export): ?>
-                        <a class="btn" href="<?php echo escape($rootBase . '/export.php'); ?>">Export</a>
+                        <a class="btn" href="<?php echo escape($rootBase . '/export.php'); ?>" title="Öffnet den Datenexport">Export</a>
                     <?php endif; ?>
-                    <button class="btn btn-secondary" type="button" id="toggleAutoRefresh" data-enabled="1">Auto‑Refresh: an</button>
-                    <form method="post" action="<?php echo escape($rootBase . '/admin.php'); ?>" style="display:inline;"><input type="hidden" name="action" value="logout"><input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>"><button type="submit" class="btn btn-secondary">Abmelden</button></form>
+                    <button class="btn btn-secondary" type="button" id="toggleAutoRefresh" data-enabled="1" title="Schaltet die automatische Aktualisierung der Live-Daten an oder aus">Auto‑Refresh: an</button>
+                    <form method="post" action="<?php echo escape($rootBase . '/admin.php'); ?>" style="display:inline;"><input type="hidden" name="action" value="logout"><input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>"><button type="submit" class="btn btn-secondary" title="Vom Dashboard abmelden">Abmelden</button></form>
                 </div>
             </div>
  
@@ -568,10 +569,67 @@ $paidPct = $gesamt > 0 ? (int)round(($bezahlt / $gesamt) * 100) : 0;
                     </div>
                 </div>
             </div>
+
+            <div class="panel" style="margin-top:18px;">
+                <div class="dash-panel-title">
+                    <h2>Datenquellen &amp; Aktualisierung</h2>
+                    <span class="muted">Herkunft der angezeigten Werte</span>
+                </div>
+                <div class="dash-list">
+                    <div class="dash-row">
+                        <div>
+                            <strong>Teilnehmer-KPIs (Gesamt, Kinder, Erwachsene, bezahlt, Teams)</strong>
+                            <span class="muted">Tabelle <code>teilnehmer</code> in der MySQL-Datenbank. Aggregation über <code>COUNT(*)</code>, <code>SUM(CASE WHEN …)</code> und <code>MIN/MAX(registriert_am)</code>.</span>
+                        </div>
+                        <div class="dash-row-value">MySQL</div>
+                    </div>
+                    <div class="dash-row">
+                        <div>
+                            <strong>Zeitfenster (60 Minuten, 24 Stunden, heute)</strong>
+                            <span class="muted">Tabelle <code>teilnehmer</code>, Filter auf <code>registriert_am</code> mit <code>NOW() - INTERVAL</code> und <code>DATE(...) = CURDATE()</code>.</span>
+                        </div>
+                        <div class="dash-row-value">MySQL</div>
+                    </div>
+                    <div class="dash-row">
+                        <div>
+                            <strong>Team-Anzahl</strong>
+                            <span class="muted"><code>SELECT COUNT(*) FROM teams</code> direkt aus der MySQL-Tabelle <code>teams</code>.</span>
+                        </div>
+                        <div class="dash-row-value">MySQL</div>
+                    </div>
+                    <div class="dash-row">
+                        <div>
+                            <strong>Startnummern-Status (frei, reserviert, vergeben)</strong>
+                            <span class="muted">Tabelle <code>startnummern</code>, gruppiert nach <code>status</code>. Nur sichtbar mit Berechtigung <code>numbers.read</code>.</span>
+                        </div>
+                        <div class="dash-row-value">MySQL</div>
+                    </div>
+                    <div class="dash-row">
+                        <div>
+                            <strong>Letzte Anmeldungen</strong>
+                            <span class="muted">Tabelle <code>teilnehmer</code>, absteigend nach <code>registriert_am</code>, begrenzt auf 8 Einträge. Anonymisiert ohne Namen.</span>
+                        </div>
+                        <div class="dash-row-value">MySQL</div>
+                    </div>
+                    <div class="dash-row">
+                        <div>
+                            <strong>Aktualisierungsintervall</strong>
+                            <span class="muted">Alle Werte werden serverseitig beim Seitenaufruf berechnet. Der Auto-Refresh lädt die Seite per JavaScript im eingestellten Intervall neu (Standard: aktiv).</span>
+                        </div>
+                        <div class="dash-row-value">Live</div>
+                    </div>
+                    <div class="dash-row">
+                        <div>
+                            <strong>Verarbeitungsschritte</strong>
+                            <span class="muted">1) Abfrage der MySQL-Tabellen, 2) Aggregation und Formatierung in PHP, 3) Ausgabe als KPI-Karten und Listen. Keine clientseitige Nachberechnung der KPIs.</span>
+                        </div>
+                        <div class="dash-row-value">PHP</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
- 
-    <script src="<?php echo escape($rootBase . '/assets/app.js'); ?>?v=<?php echo escape(app_asset_version('assets/app.js')); ?>"><\/script>
+    <script src="<?php echo escape($rootBase . '/assets/app.js'); ?>?v=<?php echo escape(app_asset_version('assets/app.js')); ?>"></script>
     <script>
         (function () {
             var clockLabel = document.getElementById('clockLabel');
