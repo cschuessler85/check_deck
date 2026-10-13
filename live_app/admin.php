@@ -106,6 +106,80 @@ if (!$is_logged_in && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
 }
 
+// @doc-section webauthn-login
+// @doc-purpose Biometrische Anmeldung per WebAuthn (Fingerabdruck/Gesicht).
+if (!$is_logged_in && isset($_POST['webauthn_action']) && $_POST['webauthn_action'] === 'login_challenge') {
+    header('Content-Type: application/json');
+    $username = trim((string)($_POST['username'] ?? ''));
+    if ($username === '') {
+        echo json_encode(['success' => false, 'error' => 'Benutzername erforderlich.']);
+        exit;
+    }
+    try {
+        $stmt = $pdo->prepare('SELECT u.id, u.username, u.role, w.credential_id FROM users u JOIN webauthn_credentials w ON w.user_id = u.id WHERE u.username = ?');
+        $stmt->execute([$username]);
+        $creds = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (count($creds) === 0) {
+            echo json_encode(['success' => false, 'error' => 'Keine biometrischen Anmeldedaten für diesen Benutzer gefunden.']);
+            exit;
+        }
+        $challenge = webauthn_generate_challenge();
+        $_SESSION['webauthn_login_challenge'] = $challenge;
+        $allowed = [];
+        foreach ($creds as $c) {
+            $allowed[] = [
+                'type' => 'public-key',
+                'id' => (string)$c['credential_id'],
+            ];
+        }
+        echo json_encode([
+            'success' => true,
+            'challenge' => $challenge,
+            'rpId' => webauthn_rp_id(),
+            'allowCredentials' => $allowed,
+            'userVerification' => 'preferred',
+        ]);
+    } catch (Throwable $e) {
+        echo json_encode(['success' => false, 'error' => 'Fehler beim Laden der Anmeldedaten.']);
+    }
+    exit;
+}
+
+if (!$is_logged_in && isset($_POST['webauthn_action']) && $_POST['webauthn_action'] === 'login') {
+    header('Content-Type: application/json');
+    $challenge = (string)($_SESSION['webauthn_login_challenge'] ?? '');
+    $credId = (string)($_POST['credential_id'] ?? '');
+    $clientDataJSON = webauthn_base64url_decode((string)($_POST['client_data_json'] ?? ''));
+    $authenticatorData = webauthn_base64url_decode((string)($_POST['authenticator_data'] ?? ''));
+    $signature = webauthn_base64url_decode((string)($_POST['signature'] ?? ''));
+    unset($_SESSION['webauthn_login_challenge']);
+    if ($challenge === '' || $credId === '' || $clientDataJSON === '' || $authenticatorData === '' || $signature === '') {
+        echo json_encode(['success' => false, 'error' => 'Unvollständige Anmeldedaten.']);
+        exit;
+    }
+    try {
+        $stmt = $pdo->prepare('SELECT w.public_key, w.id AS cred_id, u.id AS user_id, u.username, u.role FROM webauthn_credentials w JOIN users u ON u.id = w.user_id WHERE w.credential_id = ? LIMIT 1');
+        $stmt->execute([$credId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            echo json_encode(['success' => false, 'error' => 'Anmeldedaten nicht gefunden.']);
+            exit;
+        }
+        $valid = webauthn_verify_authentication($credId, $clientDataJSON, $authenticatorData, $signature, (string)$row['public_key'], $challenge);
+        if (!$valid) {
+            echo json_encode(['success' => false, 'error' => 'Biometrische Anmeldung fehlgeschlagen.']);
+            exit;
+        }
+        $upd = $pdo->prepare('UPDATE webauthn_credentials SET last_used_at = NOW() WHERE id = ?');
+        $upd->execute([(int)$row['cred_id']]);
+        auth_set_session((int)$row['user_id'], (string)$row['username'], (string)$row['role']);
+        echo json_encode(['success' => true, 'redirect' => 'admin.php']);
+    } catch (Throwable $e) {
+        echo json_encode(['success' => false, 'error' => 'Fehler bei der biometrischen Anmeldung.']);
+    }
+    exit;
+}
+
 if (!$is_logged_in && (isset($_GET['ajax_action']) || (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['ajax_action'])))) {
     header('Content-Type: application/json');
     http_response_code(403);
@@ -119,6 +193,67 @@ if (!$is_logged_in && (isset($_GET['ajax_action']) || (($_SERVER['REQUEST_METHOD
 // @doc-output JSON-Antworten fuer die Admin-Oberflaeche
 $rows = [];
 if ($is_logged_in) {
+    // @doc-section webauthn-registration
+    // @doc-purpose Registrierung eines biometrischen Schlüssels für den aktuell eingeloggten Benutzer.
+    if (isset($_POST['webauthn_action']) && $_POST['webauthn_action'] === 'register_challenge') {
+        header('Content-Type: application/json');
+        $uid = (int)($current_user['id'] ?? 0);
+        if ($uid <= 0) {
+            echo json_encode(['success' => false, 'error' => 'Nicht verfügbar für diesen Login-Typ.']);
+            exit;
+        }
+        $challenge = webauthn_generate_challenge();
+        $_SESSION['webauthn_register_challenge'] = $challenge;
+        $rpId = webauthn_rp_id();
+        $userId = bin2hex(pack('N', $uid));
+        echo json_encode([
+            'success' => true,
+            'challenge' => $challenge,
+            'rp' => ['name' => 'DLRG 24h-Schwimmen', 'id' => $rpId],
+            'user' => [
+                'id' => $userId,
+                'name' => (string)($current_user['username'] ?? ''),
+                'displayName' => (string)($current_user['username'] ?? ''),
+            ],
+            'pubKeyCredParams' => [['type' => 'public-key', 'alg' => -7]],
+            'authenticatorSelection' => ['authenticatorAttachment' => 'platform', 'userVerification' => 'preferred'],
+            'timeout' => 60000,
+            'attestation' => 'none',
+        ]);
+        exit;
+    }
+
+    if (isset($_POST['webauthn_action']) && $_POST['webauthn_action'] === 'register') {
+        header('Content-Type: application/json');
+        $challenge = (string)($_SESSION['webauthn_register_challenge'] ?? '');
+        $clientDataJSON = webauthn_base64url_decode((string)($_POST['client_data_json'] ?? ''));
+        $attestationObject = webauthn_base64url_decode((string)($_POST['attestation_object'] ?? ''));
+        $name = trim((string)($_POST['credential_name'] ?? ''));
+        unset($_SESSION['webauthn_register_challenge']);
+        $uid = (int)($current_user['id'] ?? 0);
+        if ($uid <= 0) {
+            echo json_encode(['success' => false, 'error' => 'Nicht verfügbar für diesen Login-Typ.']);
+            exit;
+        }
+        if ($challenge === '' || $clientDataJSON === '' || $attestationObject === '') {
+            echo json_encode(['success' => false, 'error' => 'Unvollständige Registrierungsdaten.']);
+            exit;
+        }
+        $result = webauthn_verify_registration($clientDataJSON, $attestationObject, $challenge);
+        if (!$result) {
+            echo json_encode(['success' => false, 'error' => 'Registrierung fehlgeschlagen.']);
+            exit;
+        }
+        try {
+            $stmt = $pdo->prepare('INSERT INTO webauthn_credentials (user_id, credential_id, public_key, name) VALUES (?, ?, ?, ?)');
+            $stmt->execute([$uid, $result['credential_id'], $result['public_key'], $name !== '' ? $name : 'Biometrischer Schlüssel']);
+            echo json_encode(['success' => true, 'message' => 'Biometrischer Schlüssel wurde registriert.']);
+        } catch (Throwable $e) {
+            echo json_encode(['success' => false, 'error' => 'Schlüssel konnte nicht gespeichert werden.']);
+        }
+        exit;
+    }
+
     if (admin_handle_audit_ajax($pdo, $current_user ?? [])) {
         exit;
     }
@@ -693,15 +828,6 @@ if ($is_logged_in) {
                     if (!$pwCheck['valid']) {
                         $user_error = implode(' ', $pwCheck['errors']);
                     } else {
-                        if ($new_role === 'admin') {
-                    try {
-                        $adminCount = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
-                    } catch (Throwable $e) {
-                        $adminCount = 0;
-                    }
-                    if ($adminCount >= 1) {
-                        $user_error = 'Es gibt bereits einen Admin. Es darf global nur einen Admin geben.';
-                    } else {
                         try {
                             $stmt = $pdo->prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)');
                             $stmt->execute([$new_username, password_hash($new_password, PASSWORD_DEFAULT), $new_role]);
@@ -714,22 +840,6 @@ if ($is_logged_in) {
                             $user_success = 'Nutzer wurde angelegt.';
                         } catch (Throwable $e) {
                             $user_error = 'Nutzer konnte nicht angelegt werden.';
-                        }
-                    }
-                        } else {
-                    try {
-                        $stmt = $pdo->prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)');
-                        $stmt->execute([$new_username, password_hash($new_password, PASSWORD_DEFAULT), $new_role]);
-                        $new_id = (int)$pdo->lastInsertId();
-                        if ($setup_mode) {
-                            auth_set_session($new_id, $new_username, $new_role);
-                            header('Location: admin.php');
-                            exit;
-                        }
-                        $user_success = 'Nutzer wurde angelegt.';
-                    } catch (Throwable $e) {
-                        $user_error = 'Nutzer konnte nicht angelegt werden.';
-                    }
                         }
                     }
                 }
@@ -746,10 +856,8 @@ if ($is_logged_in) {
 
                         $adminCount = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
 
-                        if ($role === 'admin' && $currentRole !== 'admin' && $adminCount >= 1) {
-                            $user_error = 'Es gibt bereits einen Admin. Es darf global nur einen Admin geben.';
-                        } elseif ($currentRole === 'admin' && $role !== 'admin' && $adminCount <= 1) {
-                            $user_error = 'Der letzte Admin kann nicht entfernt werden. Es muss global genau ein Admin existieren.';
+                        if ($currentRole === 'admin' && $role !== 'admin' && $adminCount <= 1) {
+                            $user_error = 'Der letzte Admin kann nicht entfernt werden. Es muss mindestens ein Admin existieren.';
                         } else {
                         $stmt = $pdo->prepare('UPDATE users SET role = ? WHERE id = ?');
                         $stmt->execute([$role, $uid]);
@@ -790,7 +898,7 @@ if ($is_logged_in) {
                         if ($roleToDelete === 'admin') {
                             $adminCount = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
                             if ($adminCount <= 1) {
-                                $user_error = 'Der letzte Admin kann nicht gelöscht werden. Es muss global genau ein Admin existieren.';
+                                $user_error = 'Der letzte Admin kann nicht gelöscht werden. Es muss mindestens ein Admin existieren.';
                                 $roleToDelete = '';
                             }
                         }
@@ -810,6 +918,33 @@ if ($is_logged_in) {
                         $user_error = 'Nutzer konnte nicht gelöscht werden.';
                     }
                 }
+            }
+        }
+    }
+
+    // @doc-section token-actions
+    // @doc-purpose Generiert Zugriffstokens für autorisierte Benutzer (Admin). Das Klartext-Token wird nur einmal angezeigt.
+    $generated_token = '';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['token_action']) && $_POST['token_action'] === 'generate_token') {
+        if (!csrf_token_verify($_POST['csrf_token'] ?? null)) {
+            $user_error = 'Sicherheitsprüfung fehlgeschlagen. Bitte Seite neu laden und erneut versuchen.';
+        } elseif (!$users_enabled || !auth_can($pdo, 'users.manage')) {
+            $user_error = 'Zugriff verweigert.';
+        } else {
+            $description = trim((string)($_POST['token_description'] ?? ''));
+            if ($description === '') {
+                $description = 'Token ' . date('Y-m-d H:i');
+            }
+            $rawToken = bin2hex(random_bytes(32));
+            $tokenHash = hash('sha256', $rawToken);
+            $uid = (int)($current_user['id'] ?? 0);
+            try {
+                $stmt = $pdo->prepare('INSERT INTO access_tokens (token_hash, description, created_by) VALUES (?, ?, ?)');
+                $stmt->execute([$tokenHash, $description, $uid]);
+                $generated_token = $rawToken;
+                $user_success = 'Zugriffstoken wurde erstellt. Bitte kopieren Sie das Token sofort – es wird nur einmal angezeigt.';
+            } catch (Throwable $e) {
+                $user_error = 'Token konnte nicht erstellt werden.';
             }
         }
     }
@@ -853,6 +988,66 @@ if ($is_logged_in) {
                     } catch (Throwable $e) {
                         $profile_error = 'Passwort konnte nicht geändert werden.';
                     }
+                    }
+                }
+            }
+        }
+    }
+
+    // @doc-section profile-update
+    // @doc-purpose Erlaubt dem Benutzer die Aenderung des eigenen Benutzernamens und (mit Berechtigung) der eigenen Rolle.
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['profile_action']) && $_POST['profile_action'] === 'update_profile') {
+        if (!csrf_token_verify($_POST['csrf_token'] ?? null)) {
+            $profile_error = 'Sicherheitsprüfung fehlgeschlagen. Bitte Seite neu laden und erneut versuchen.';
+        } elseif (!$users_enabled) {
+            $profile_error = 'Profiländerung ist nicht verfügbar.';
+        } else {
+            $uid = (int)($current_user['id'] ?? 0);
+            if ($uid <= 0) {
+                $profile_error = 'Profiländerung ist für diesen Login-Typ nicht verfügbar.';
+            } else {
+                $newUsername = trim((string)($_POST['profile_username'] ?? ''));
+                $newRole = (string)($_POST['profile_role'] ?? '');
+                $canEditRole = auth_can($pdo, 'users.manage');
+                $validRoles = ['admin', 'cashier', 'orga', 'viewer'];
+
+                if ($newUsername === '') {
+                    $profile_error = 'Benutzername darf nicht leer sein.';
+                } elseif ($canEditRole && !in_array($newRole, $validRoles, true)) {
+                    $profile_error = 'Ungültige Rolle.';
+                } else {
+                    try {
+                        $pdo->beginTransaction();
+                        $upd = $pdo->prepare('UPDATE users SET username = ? WHERE id = ?');
+                        $upd->execute([$newUsername, $uid]);
+
+                        if ($canEditRole && $newRole !== '') {
+                            $currentRoleStmt = $pdo->prepare('SELECT role FROM users WHERE id = ? LIMIT 1');
+                            $currentRoleStmt->execute([$uid]);
+                            $currentRole = (string)($currentRoleStmt->fetchColumn() ?: '');
+                            $adminCount = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn();
+                            if ($currentRole === 'admin' && $newRole !== 'admin' && $adminCount <= 1) {
+                                $pdo->rollBack();
+                                $profile_error = 'Der letzte Admin kann nicht entfernt werden. Es muss mindestens ein Admin existieren.';
+                            } else {
+                                $roleUpd = $pdo->prepare('UPDATE users SET role = ? WHERE id = ?');
+                                $roleUpd->execute([$newRole, $uid]);
+                                $_SESSION['role'] = $newRole;
+                                $role = $newRole;
+                                $pdo->commit();
+                                $profile_success = 'Profil wurde aktualisiert.';
+                            }
+                        } else {
+                            $pdo->commit();
+                            $profile_success = 'Benutzername wurde aktualisiert.';
+                        }
+
+                        $_SESSION['username'] = $newUsername;
+                    } catch (Throwable $e) {
+                        if ($pdo->inTransaction()) {
+                            $pdo->rollBack();
+                        }
+                        $profile_error = 'Profil konnte nicht aktualisiert werden. Möglicherweise ist der Benutzername bereits vergeben.';
                     }
                 }
             }
@@ -1162,6 +1357,15 @@ if ($can_manage_users) {
         }
         document.documentElement.setAttribute('data-theme', theme);
       })();
+      (() => {
+        try {
+          const accent = localStorage.getItem('admin_accent');
+          const colors = { rot: '#E30613', blau: '#0569b4', gelb: '#FFED00' };
+          if (accent && colors[accent]) {
+            document.documentElement.style.setProperty('--dlrg-rot', colors[accent]);
+          }
+        } catch (e) {}
+      })();
     </script>
     <script charset="utf-8" src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" integrity="sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+" crossorigin="anonymous"></script>
     <meta name="csrf-token" content="<?php echo escape(csrf_token_get()); ?>" />
@@ -1304,6 +1508,57 @@ if ($can_manage_users) {
         border-color: rgba(255, 237, 0, 0.22);
       }
 
+      /* @doc-note Admin-Panel nutzt die volle Viewport-Höhe, nur Inhaltsbereiche scrollen intern. */
+      body.admin-page {
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      body.admin-page > .page {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+      }
+
+      body.admin-page > .page > .container {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        border-radius: 0;
+        border: 0;
+      }
+
+      body.admin-page .reg-header {
+        flex: 0 0 auto;
+      }
+
+      body.admin-page .page-shell.admin-page-shell {
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+
+      body.admin-page .admin-page-sidebar {
+        height: 100%;
+        max-height: none;
+        overflow-y: auto;
+      }
+
+      body.admin-page .admin-page-main {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body.admin-page .admin-content-frame {
+        height: 100%;
+      }
+
+      body.admin-page .admin-content-scroll {
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
       .admin-session-actions {
         margin-left: auto;
         display: flex;
@@ -1374,7 +1629,7 @@ if ($can_manage_users) {
       .admin-page-main {
         min-width: 0;
         display: grid;
-        gap: 16px;
+        gap: var(--spacing-base);
         align-content: start;
         align-self: start;
       }
@@ -1382,7 +1637,7 @@ if ($can_manage_users) {
       .admin-content-frame {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: var(--spacing-base);
         min-width: 0;
         min-height: 0;
       }
@@ -1470,7 +1725,7 @@ if ($can_manage_users) {
 
       .admin-content-scroll {
         display: grid;
-        gap: 16px;
+        gap: var(--spacing-base);
         align-content: start;
         flex: 1 1 auto;
         min-height: 0;
@@ -1506,7 +1761,7 @@ if ($can_manage_users) {
       .admin-shell-panel.admin-content-frame {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: var(--spacing-base);
       }
 
       .admin-page-sidebar .admin-shell-panel {
@@ -2438,6 +2693,16 @@ if ($can_manage_users) {
         .admin-session-actions > * {
           flex: 1 1 auto;
           width: 100%;
+          min-width: 0;
+        }
+
+        .admin-session-actions > form {
+          display: flex;
+          margin: 0;
+        }
+
+        .admin-session-actions > form > .btn {
+          width: 100%;
         }
       }
     </style>
@@ -2459,7 +2724,7 @@ if ($can_manage_users) {
           <div class="panel">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
               <h2 style="margin:0;">Login</h2>
-              <button type="button" class="btn btn-secondary" id="theme_toggle" aria-pressed="false">
+              <button type="button" class="btn btn-secondary" id="theme_toggle" aria-pressed="false" title="Wechselt zwischen hellem und dunklem Design">
                 <span class="admin-session-action-icon" aria-hidden="true">&#9790;</span>
                 <span class="admin-session-action-label">Dunkelmodus</span>
               </button>
@@ -2505,9 +2770,20 @@ if ($can_manage_users) {
                 </div>
               <?php endif; ?>
               <div class="actions">
-                <button class="btn btn-wide" type="submit">Einloggen</button>
+                <button class="btn btn-wide" type="submit" title="Meldet Sie mit Benutzername und Passwort an">Einloggen</button>
               </div>
             </form>
+
+            <div style="margin-top:12px; border-top:1px solid var(--border-color, #ddd); padding-top:12px;">
+              <p class="muted" style="margin:0 0 10px 0;">Alternativ mit Biometrie anmelden (Fingerabdruck, Gesichtserkennung):</p>
+              <div class="actions">
+                <button type="button" class="btn btn-secondary" id="webauthn_login_btn" title="Melden Sie sich mit Fingerabdruck oder Gesichtserkennung an">
+                  <span class="admin-session-action-icon" aria-hidden="true">&#128274;</span>
+                  <span class="admin-session-action-label">Biometrisch anmelden</span>
+                </button>
+              </div>
+              <div id="webauthn_login_status" class="muted" style="margin-top:10px;"></div>
+            </div>
           </div>
         <?php else: ?>
           <?php
@@ -2541,7 +2817,7 @@ if ($can_manage_users) {
                     <p class="sidebar-label">Mobil-Menue</p>
                     <h2 class="admin-page-sidebar-mobile-title">Navigation und Sitzung</h2>
                   </div>
-                  <button type="button" class="btn btn-secondary admin-page-sidebar-mobile-close" id="admin_mobile_menu_close">Schliessen</button>
+                  <button type="button" class="btn btn-secondary admin-page-sidebar-mobile-close" id="admin_mobile_menu_close" title="Schließt das mobile Navigationsmenü">Schliessen</button>
                 </div>
                 <div class="admin-shell-intro">
                   <p class="sidebar-label">Admin-Panel</p>
@@ -2553,19 +2829,20 @@ if ($can_manage_users) {
                       <p class="sidebar-label">Anchor pages</p>
                     </div>
                     <nav class="admin-nav" aria-label="Unterseiten">
-                      <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="participants_list" aria-controls="participants_list">Teilnehmerliste</button>
-                      <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="profile" aria-controls="profile">Mein Profil bearbeiten</button>
+                      <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="participants_list" aria-controls="participants_list" title="Zeigt die Liste aller angemeldeten Teilnehmer">Teilnehmerliste</button>
+                      <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="profile" aria-controls="profile" title="Bearbeitet Ihr eigenes Profil (Name, Rolle, Passwort)">Mein Profil bearbeiten</button>
+                      <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="settings" aria-controls="settings" title="Öffnet die Systemeinstellungen (Design, Sprache, Reset)">Einstellungen</button>
                       <?php if ($can_create_participant): ?>
-                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="participants_create" aria-controls="participants_create">Teilnehmer anlegen</button>
+                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="participants_create" aria-controls="participants_create" title="Legt einen neuen Teilnehmer an">Teilnehmer anlegen</button>
                       <?php endif; ?>
                       <?php if ($can_manage_users): ?>
-                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="users" aria-controls="users">Nutzerverwaltung</button>
+                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="users" aria-controls="users" title="Verwaltet Benutzerkonten und Zugriffstokens">Nutzerverwaltung</button>
                       <?php endif; ?>
                       <?php if ($can_manage_teams): ?>
-                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="teams_manage" aria-controls="teams_manage">Teams</button>
+                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="teams_manage" aria-controls="teams_manage" title="Verwaltet Teams und Teamzuordnungen">Teams</button>
                       <?php endif; ?>
                       <?php if ($can_admin_pages): ?>
-                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="audit" aria-controls="audit">Ereignisprotokoll</button>
+                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="audit" aria-controls="audit" title="Zeigt das Ereignisprotokoll aller Aktionen">Ereignisprotokoll</button>
                       <?php endif; ?>
                     </nav>
                   </section>
@@ -2594,7 +2871,7 @@ if ($can_manage_users) {
                     </div>
                   </section>
 
-                  <section class="admin-side-group">
+                  <section class="admin-side-group" id="admin_table_controls">
                     <div class="admin-side-group-head">
                       <p class="sidebar-label">Tabelle filtern:</p>
                     </div>
@@ -2607,9 +2884,9 @@ if ($can_manage_users) {
                         <form id="cash_form" class="admin-search-form" method="get" action="admin.php">
                           <input id="cash_code" name="code" type="text" placeholder="z.B. ABCD‑EFGH‑JK" autocomplete="off" />
                           <div class="admin-search-actions">
-                            <button class="btn btn-secondary" type="submit">Suchen</button>
+                            <button class="btn btn-secondary" type="submit" title="Sucht einen Teilnehmer anhand des eingegebenen Tokens">Suchen</button>
                             <?php if ($can_pay): ?>
-                              <button id="btn_scan_qr" class="btn btn-primary" type="button">QR Scannen</button>
+                              <button id="btn_scan_qr" class="btn btn-primary" type="button" title="Startet den QR-Code-Scanner zur Erfassung eines Teilnehmertokens">QR Scannen</button>
                             <?php endif; ?>
                           </div>
                         </form>
@@ -2661,10 +2938,10 @@ if ($can_manage_users) {
                         <span class="admin-session-action-icon" aria-hidden="true">&#9790;</span>
                         <span class="admin-session-action-label">Dunkelmodus</span>
                       </button>
-                      <form method="post" action="admin.php" style="display:inline;">
+                      <form method="post" action="admin.php">
                         <input type="hidden" name="action" value="logout">
                         <input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>">
-                        <button type="submit" class="btn btn-secondary">
+                        <button type="submit" class="btn btn-secondary" title="Von der Verwaltungsoberfläche abmelden">
                           <span class="admin-session-action-icon" aria-hidden="true">&#8618;</span>
                           <span class="admin-session-action-label">Abmelden</span>
                         </button>
@@ -2729,6 +3006,37 @@ if ($can_manage_users) {
               </div>
             </div>
 
+            <div class="panel admin-anchor-target" id="profile_edit" data-admin-anchor-label="Profil bearbeiten" style="margin-top:12px;">
+              <h3 style="margin:0 0 10px 0;">Name und Rolle</h3>
+              <form class="reg-form" method="post" action="admin.php#profile" style="margin-top:12px;">
+                <input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>" />
+                <input type="hidden" name="profile_action" value="update_profile" />
+                <div class="grid">
+                  <div class="field">
+                    <label for="profile_username">Benutzername</label>
+                    <input id="profile_username" name="profile_username" type="text" value="<?php echo escape((string)($_SESSION['username'] ?? ($current_user['username'] ?? ''))); ?>" required />
+                  </div>
+                  <div class="field">
+                    <label for="profile_role">Rolle</label>
+                    <?php if ($can_manage_users): ?>
+                      <select id="profile_role" name="profile_role">
+                        <option value="admin" <?php echo $role === 'admin' ? 'selected' : ''; ?>>Admin</option>
+                        <option value="cashier" <?php echo $role === 'cashier' ? 'selected' : ''; ?>>Kasse</option>
+                        <option value="orga" <?php echo $role === 'orga' ? 'selected' : ''; ?>>Orga/Bahn</option>
+                        <option value="viewer" <?php echo $role === 'viewer' ? 'selected' : ''; ?>>Nur Lesen</option>
+                      </select>
+                    <?php else: ?>
+                      <input type="text" value="<?php echo escape($role); ?>" disabled />
+                      <input type="hidden" name="profile_role" value="<?php echo escape($role); ?>" />
+                    <?php endif; ?>
+                  </div>
+                </div>
+                <div class="actions">
+                  <button class="btn btn-primary" type="submit" title="Speichert die Änderungen an Benutzername und Rolle">Profil speichern</button>
+                </div>
+              </form>
+            </div>
+
             <div class="panel admin-anchor-target" id="profile_password" data-admin-anchor-label="Passwort ändern" style="margin-top:12px;">
               <h3 style="margin:0 0 10px 0;">Passwort ändern</h3>
               <?php if (!$can_change_own_password): ?>
@@ -2752,10 +3060,117 @@ if ($can_manage_users) {
                     </div>
                   </div>
                   <div class="actions">
-                    <button class="btn btn-primary" type="submit">Passwort ändern</button>
+                    <button class="btn btn-primary" type="submit" title="Ändert das aktuelle Passwort nach Eingabe des alten und neuen Passworts">Passwort ändern</button>
                   </div>
                 </form>
               <?php endif; ?>
+            </div>
+
+            <div class="panel admin-anchor-target" id="profile_webauthn" data-admin-anchor-label="Biometrische Anmeldung" style="margin-top:12px;">
+              <h3 style="margin:0 0 10px 0;">Biometrische Anmeldung</h3>
+              <p class="muted" style="margin:0 0 10px 0;">Registrieren Sie einen biometrischen Schlüssel (Fingerabdruck, Gesichtserkennung), um sich ohne Passwort anmelden zu können.</p>
+              <div class="grid">
+                <div class="field">
+                  <label for="webauthn_credential_name">Name des Schlüssels</label>
+                  <input id="webauthn_credential_name" type="text" placeholder="z.B. Mein Laptop" />
+                </div>
+              </div>
+              <div class="actions">
+                <button type="button" class="btn btn-primary" id="webauthn_register_btn" title="Registriert einen neuen biometrischen Schlüssel für die Anmeldung">Schlüssel registrieren</button>
+              </div>
+              <div id="webauthn_register_status" class="muted" style="margin-top:10px;"></div>
+              <?php
+              $uid = (int)($current_user['id'] ?? 0);
+              if ($uid > 0) {
+                  try {
+                      $waStmt = $pdo->prepare('SELECT id, name, created_at, last_used_at FROM webauthn_credentials WHERE user_id = ? ORDER BY created_at DESC');
+                      $waStmt->execute([$uid]);
+                      $waCreds = $waStmt->fetchAll(PDO::FETCH_ASSOC);
+                  } catch (Throwable $e) {
+                      $waCreds = [];
+                  }
+              } else {
+                  $waCreds = [];
+              }
+              ?>
+              <?php if (count($waCreds) > 0): ?>
+                <div class="table-wrap" style="margin-top:12px;">
+                  <table class="data-table">
+                    <thead>
+                      <tr><th>Name</th><th>Erstellt am</th><th>Zuletzt genutzt</th></tr>
+                    </thead>
+                    <tbody>
+                      <?php foreach ($waCreds as $wc): ?>
+                        <tr>
+                          <td><?php echo escape((string)$wc['name']); ?></td>
+                          <td><?php echo escape((string)$wc['created_at']); ?></td>
+                          <td><?php echo escape((string)($wc['last_used_at'] ?? '–')); ?></td>
+                        </tr>
+                      <?php endforeach; ?>
+                    </tbody>
+                  </table>
+                </div>
+              <?php endif; ?>
+            </div>
+          </div>
+
+          <div id="settings" class="panel admin-section admin-anchor-target" data-admin-section-title="Einstellungen" style="margin-bottom:12px;" hidden>
+            <h2 style="margin:0 0 10px 0;">Einstellungen</h2>
+
+            <div class="panel admin-anchor-target" id="settings_design" data-admin-anchor-label="Design" style="margin-top:12px;">
+              <h3 style="margin:0 0 10px 0;">Design</h3>
+              <div class="grid">
+                <div class="field">
+                  <label for="settings_theme">Darstellungsmodus</label>
+                  <select id="settings_theme" name="settings_theme">
+                    <option value="light">Hell</option>
+                    <option value="dark">Dunkel</option>
+                  </select>
+                  <p class="muted" style="margin:0;">Wechselt zwischen hellem und dunklem Design. Die Auswahl wird lokal gespeichert.</p>
+                </div>
+                <div class="field">
+                  <label for="settings_accent">Akzentfarbe</label>
+                  <select id="settings_accent" name="settings_accent">
+                    <option value="rot">DLRG Rot</option>
+                    <option value="blau">DLRG Blau</option>
+                    <option value="gelb">DLRG Gelb</option>
+                  </select>
+                  <p class="muted" style="margin:0;">Legt die primäre Akzentfarbe für Buttons und Hervorhebungen fest.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel admin-anchor-target" id="settings_language" data-admin-anchor-label="Sprache" style="margin-top:12px;">
+              <h3 style="margin:0 0 10px 0;">Sprache</h3>
+              <div class="field" style="max-width:320px;">
+                <label for="settings_language">Oberflächensprache</label>
+                <select id="settings_language" name="settings_language">
+                  <option value="de">Deutsch</option>
+                  <option value="en">English</option>
+                </select>
+                <p class="muted" style="margin:0;">Die Sprachauswahl wird für zukünftige Erweiterungen vorbereitet.</p>
+              </div>
+            </div>
+
+            <div class="panel admin-anchor-target" id="settings_event_types" data-admin-anchor-label="Veranstaltungsarten" style="margin-top:12px;">
+              <h3 style="margin:0 0 10px 0;">Veranstaltungsarten</h3>
+              <p class="muted" style="margin:0 0 10px 0;">Kategorie zur späteren Erweiterung. Hier können zukünftig verschiedene Veranstaltungsarten (z.B. 24h-Schwimmen, 12h-Schwimmen, Meisterschaften) konfiguriert werden.</p>
+              <div class="field" style="max-width:320px;">
+                <label for="settings_event_type">Aktive Veranstaltungsart</label>
+                <select id="settings_event_type" name="settings_event_type">
+                  <option value="24h">24h-Schwimmen</option>
+                  <option value="12h">12h-Schwimmen</option>
+                  <option value="custom">Benutzerdefiniert</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="panel admin-anchor-target" id="settings_reset" data-admin-anchor-label="App zurücksetzen" style="margin-top:12px;">
+              <h3 style="margin:0 0 10px 0;">App zurücksetzen</h3>
+              <p class="muted" style="margin:0 0 10px 0;">Löscht alle lokal gespeicherten Daten (Design-Einstellungen, Sprache, Filter, Sitzungszustand) und Cookies. Danach wird die Seite neu geladen.</p>
+              <div class="actions">
+                <button id="settings_reset_btn" class="btn btn-secondary" type="button" title="Löscht alle lokalen Daten und lädt die Seite neu">Alle lokalen Daten löschen</button>
+              </div>
             </div>
           </div>
 
@@ -2785,7 +3200,7 @@ if ($can_manage_users) {
                   <div class="field">
                     <label>Rolle</label>
                     <select name="new_role">
-                      <option value="admin" <?php echo ($setup_mode && $admin_count === 0) ? 'selected' : ''; ?> <?php echo ($admin_count >= 1) ? 'disabled' : ''; ?>>Admin</option>
+                      <option value="admin" <?php echo ($setup_mode && $admin_count === 0) ? 'selected' : ''; ?>>Admin</option>
                       <option value="cashier">Kasse</option>
                       <option value="orga">Orga/Bahn</option>
                       <option value="viewer">Nur Lesen</option>
@@ -2793,12 +3208,72 @@ if ($can_manage_users) {
                   </div>
                 </div>
                 <div class="actions">
-                  <button class="btn btn-primary users-action-btn users-create-action" type="submit">
+                  <button class="btn btn-primary users-action-btn users-create-action" type="submit" title="Erstellt ein neues Benutzerkonto mit Benutzername, Passwort und Rolle">
                     <span class="participant-action-icon" aria-hidden="true">&#10133;</span>
                     <span>Nutzer anlegen</span>
                   </button>
                 </div>
               </form>
+
+              <div class="panel admin-anchor-target" id="users_tokens" data-admin-anchor-label="Zugriffstokens" style="margin-top:12px;">
+                <h3 style="margin:0 0 10px 0;">Zugriffstokens</h3>
+                <p class="muted" style="margin:0 0 10px 0;">Erzeugen Sie API-Zugriffstokens für externe Systeme. Das Klartext-Token wird nur einmal angezeigt und kann nicht wieder abgerufen werden.</p>
+                <form class="reg-form" method="post" action="admin.php#users" style="margin-top:12px;">
+                  <input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>" />
+                  <input type="hidden" name="token_action" value="generate_token" />
+                  <div class="grid">
+                    <div class="field">
+                      <label for="token_description">Beschreibung</label>
+                      <input id="token_description" name="token_description" type="text" placeholder="z.B. Dashboard-Integration" />
+                    </div>
+                  </div>
+                  <div class="actions">
+                    <button class="btn btn-primary" type="submit" title="Erzeugt ein neues Zugriffstoken und zeigt es einmalig an">Token erzeugen</button>
+                  </div>
+                </form>
+                <?php if ($generated_token !== ''): ?>
+                  <div class="alert alert-success" style="margin-top:12px;">
+                    <strong>Neues Token (bitte sofort kopieren):</strong>
+                    <div style="margin-top:8px; padding:10px; background:#f5f5f5; border:1px solid #ddd; border-radius:6px; font-family:monospace; word-break:break-all; user-select:all;"><?php echo escape($generated_token); ?></div>
+                  </div>
+                <?php endif; ?>
+                <?php
+                try {
+                  $tokenStmt = $pdo->query('SELECT t.id, t.description, t.created_at, t.expires_at, t.last_used_at, t.revoked, u.username FROM access_tokens t LEFT JOIN users u ON u.id = t.created_by ORDER BY t.created_at DESC');
+                  $tokens = $tokenStmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (Throwable $e) {
+                  $tokens = [];
+                }
+                ?>
+                <?php if (count($tokens) > 0): ?>
+                  <div class="table-wrap" style="margin-top:12px;">
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Beschreibung</th>
+                          <th>Erstellt von</th>
+                          <th>Erstellt am</th>
+                          <th>Zuletzt genutzt</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <?php foreach ($tokens as $t): ?>
+                          <tr>
+                            <td><?php echo (int)$t['id']; ?></td>
+                            <td><?php echo escape((string)$t['description']); ?></td>
+                            <td><?php echo escape((string)($t['username'] ?? '–')); ?></td>
+                            <td><?php echo escape((string)$t['created_at']); ?></td>
+                            <td><?php echo escape((string)($t['last_used_at'] ?? '–')); ?></td>
+                            <td><?php echo !empty($t['revoked']) ? 'Widerrufen' : 'Aktiv'; ?></td>
+                          </tr>
+                        <?php endforeach; ?>
+                      </tbody>
+                    </table>
+                  </div>
+                <?php endif; ?>
+              </div>
 
               <?php if (count($users) > 0): ?>
                 <div class="table-wrap admin-anchor-target" id="users_table_anchor" data-admin-anchor-label="Benutzerliste" style="margin-top:12px;">
@@ -2830,12 +3305,12 @@ if ($can_manage_users) {
                               <input type="hidden" name="user_action" value="update_role" />
                               <input type="hidden" name="user_id" value="<?php echo escape((string)$u['id']); ?>" />
                               <select name="role">
-                                <option value="admin" <?php echo $u['role'] === 'admin' ? 'selected' : ''; ?> <?php echo ($u['role'] !== 'admin' && $admin_count >= 1) ? 'disabled' : ''; ?>>Admin</option>
+                                <option value="admin" <?php echo $u['role'] === 'admin' ? 'selected' : ''; ?>>Admin</option>
                                 <option value="cashier" <?php echo $u['role'] === 'cashier' ? 'selected' : ''; ?>>Kasse</option>
                                 <option value="orga" <?php echo $u['role'] === 'orga' ? 'selected' : ''; ?>>Orga/Bahn</option>
                                 <option value="viewer" <?php echo $u['role'] === 'viewer' ? 'selected' : ''; ?>>Nur Lesen</option>
                               </select>
-                              <button class="btn btn-secondary users-action-btn" type="submit">
+                              <button class="btn btn-secondary users-action-btn" type="submit" title="Speichert die ausgewählte Rolle für diesen Benutzer">
                                 <span class="participant-action-icon" aria-hidden="true">&#128190;</span>
                               </button>
                             </form>
@@ -2846,7 +3321,7 @@ if ($can_manage_users) {
                               <input type="hidden" name="user_action" value="update_password" />
                               <input type="hidden" name="user_id" value="<?php echo escape((string)$u['id']); ?>" />
                               <input type="password" name="password" placeholder="Neues Passwort" autocomplete="new-password" required />
-                              <button class="btn btn-primary users-action-btn" type="submit">
+                              <button class="btn btn-primary users-action-btn" type="submit" title="Setzt das Passwort dieses Benutzers auf das eingegebene neue Passwort">
                                 <span class="participant-action-icon" aria-hidden="true">&#128273;</span>
                               </button>
                             </form>
@@ -2856,7 +3331,7 @@ if ($can_manage_users) {
                               <input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>" />
                               <input type="hidden" name="user_action" value="delete_user" />
                               <input type="hidden" name="user_id" value="<?php echo escape((string)$u['id']); ?>" />
-                              <button class="btn btn-yellow users-action-btn" type="submit" onclick="return confirm('Nutzer wirklich löschen?')">
+                              <button class="btn btn-yellow users-action-btn" type="submit" onclick="return confirm('Nutzer wirklich löschen?')" title="Löscht diesen Benutzer dauerhaft (mit Bestätigung)">
                                 <span class="participant-action-icon" aria-hidden="true">&#128465;</span>
                               </button>
                             </form>
@@ -2889,7 +3364,7 @@ if ($can_manage_users) {
                     <label for="team_create_name">Neues Team anlegen</label>
                     <div style="display:flex; gap:10px; align-items:center; width:100%;">
                       <input id="team_create_name" name="team_name" type="text" placeholder="Teamname" style="flex:1;" />
-                      <button class="btn btn-primary" type="submit" style="white-space: nowrap;">Team anlegen</button>
+                      <button class="btn btn-primary" type="submit" style="white-space: nowrap;" title="Erstellt ein neues Team mit dem eingegebenen Namen">Team anlegen</button>
                     </div>
                   </div>
                 </div>
@@ -2935,12 +3410,12 @@ if ($can_manage_users) {
               <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="team_manage_title" tabindex="-1" style="max-width: 720px;">
                 <div class="modal-header">
                   <h2 class="modal-title" id="team_manage_title">Team: <span id="team_manage_name"></span></h2>
-                  <button class="modal-close" type="button" data-modal-close>Schließen</button>
+                  <button class="modal-close" type="button" data-modal-close title="Schließt dieses Dialogfenster">Schließen</button>
                 </div>
 
                 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
-                  <button id="team_manage_rename" type="button" class="btn btn-secondary">Umbenennen</button>
-                  <button id="team_manage_delete" type="button" class="btn btn-secondary">Löschen</button>
+                  <button id="team_manage_rename" type="button" class="btn btn-secondary" title="Benennt das aktuelle Team um">Umbenennen</button>
+                  <button id="team_manage_delete" type="button" class="btn btn-secondary" title="Löscht das aktuelle Team (Mitglieder bleiben erhalten)">Löschen</button>
                 </div>
 
                 <div id="team_manage_msg" style="margin-top:12px;"></div>
@@ -2952,7 +3427,7 @@ if ($can_manage_users) {
                       <select id="team_unassigned_select" style="flex:1;">
                         <option value="" selected>— Laden… —</option>
                       </select>
-                      <button id="team_unassigned_add" type="button" class="btn btn-primary" style="white-space:nowrap;">Hinzufügen</button>
+                      <button id="team_unassigned_add" type="button" class="btn btn-primary" style="white-space:nowrap;" title="Fügt den ausgewählten Teilnehmer ohne Team diesem Team hinzu">Hinzufügen</button>
                     </div>
                   </div>
                   <div class="field" style="grid-column: 1 / -1;">
@@ -3036,7 +3511,7 @@ if ($can_manage_users) {
                 </div>
 
                 <div class="actions">
-                  <button class="btn btn-primary" type="submit">Teilnehmer anlegen</button>
+                  <button class="btn btn-primary" type="submit" title="Erstellt einen neuen Teilnehmer mit den eingegebenen Daten">Teilnehmer anlegen</button>
                 </div>
               </form>
             </div>
@@ -3047,13 +3522,13 @@ if ($can_manage_users) {
               <div class="modal-panel" style="max-width: 560px;">
                 <div class="modal-header">
                   <h2 id="qr_scanner_title" class="modal-title">QR Code scannen</h2>
-                  <button id="btn_close_scan" type="button" class="modal-close" aria-label="Schließen">&times;</button>
+                  <button id="btn_close_scan" type="button" class="modal-close" aria-label="Schließen" title="Schließt den QR-Scanner">&times;</button>
                 </div>
                 <div style="margin-top: 16px;">
                   <p class="hint" style="margin: 0 0 12px 0;">Auf Mobilgeraeten oeffnet der Scanner jetzt direkt als Overlay und nutzt bevorzugt die Rueckkamera.</p>
                   <div id="qr_reader" style="width: 100%; max-width: 500px; min-height: 280px; margin: 0 auto;"></div>
                   <div style="text-align: center; margin-top: 12px;">
-                    <button id="btn_stop_scan" type="button" class="btn btn-secondary">Abbrechen</button>
+                    <button id="btn_stop_scan" type="button" class="btn btn-secondary" title="Bricht den QR-Scan-Vorgang ab">Abbrechen</button>
                   </div>
                 </div>
               </div>
@@ -3078,8 +3553,8 @@ if ($can_manage_users) {
                   <input type="hidden" id="assign_code_input" />
                   <input type="hidden" id="assign_is_auto_scan" />
                   <div class="actions" style="margin-top:24px;">
-                    <button class="btn btn-primary" id="btn_confirm_assign">Bezahlen &amp; Zuweisen</button>
-                    <button class="btn btn-secondary" onclick="document.getElementById('modalAssignNum').setAttribute('aria-hidden', 'true')">Abbrechen</button>
+                    <button class="btn btn-primary" id="btn_confirm_assign" title="Markiert den Teilnehmer als bezahlt und weist die Startnummer zu">Bezahlen &amp; Zuweisen</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('modalAssignNum').setAttribute('aria-hidden', 'true')" title="Bricht die Zuweisung ab und schließt den Dialog">Abbrechen</button>
                   </div>
                 </div>
               </div>
@@ -3123,7 +3598,7 @@ if ($can_manage_users) {
                   <form method="post" action="admin.php?cash=1&amp;code=<?php echo urlencode((string)$cash_row['code']); ?>" style="margin-top:12px;">
                     <input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>" />
                     <input type="hidden" name="code" value="<?php echo escape((string)$cash_row['code']); ?>" />
-                    <button class="btn btn-wide" type="submit" name="mark_paid" value="1">Als bezahlt markieren</button>
+                    <button class="btn btn-wide" type="submit" name="mark_paid" value="1" title="Markiert den angezeigten Teilnehmer als bezahlt">Als bezahlt markieren</button>
                   </form>
                 <?php else: ?>
                   <div class="hint" style="margin-top:12px;">Keine Berechtigung zum Kassieren.</div>
@@ -3235,7 +3710,7 @@ if ($can_manage_users) {
               <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="participant_edit_title" tabindex="-1" style="max-width: 560px;">
                 <div class="modal-header">
                   <h2 class="modal-title" id="participant_edit_title">Teilnehmer bearbeiten</h2>
-                  <button class="modal-close" type="button" data-modal-close>Schließen</button>
+                  <button class="modal-close" type="button" data-modal-close title="Schließt dieses Dialogfenster">Schließen</button>
                 </div>
 
                 <div id="participant_edit_msg" style="margin-top:12px;"></div>
@@ -3283,8 +3758,8 @@ if ($can_manage_users) {
                   </div>
 
                   <div class="actions">
-                    <button class="btn btn-primary" type="submit">Speichern</button>
-                    <button class="btn btn-secondary" type="button" data-modal-close>Abbrechen</button>
+                    <button class="btn btn-primary" type="submit" title="Speichert die Änderungen im Dialog">Speichern</button>
+                    <button class="btn btn-secondary" type="button" data-modal-close title="Verwirft die Änderungen und schließt den Dialog">Abbrechen</button>
                   </div>
                 </form>
               </div>
@@ -3336,10 +3811,10 @@ if ($can_manage_users) {
               </div>
 
               <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top: 12px;">
-                <button class="btn btn-primary" type="button" id="audit_reload">Neu laden</button>
-                <button class="btn btn-secondary" type="button" id="audit_more">Mehr laden</button>
-                <button class="btn btn-secondary" type="button" id="audit_clear_table">Tabelle leeren</button>
-                <button class="btn btn-secondary" type="button" id="audit_clear_all">Alle Logs leeren</button>
+                <button class="btn btn-primary" type="button" id="audit_reload" title="Lädt das Ereignisprotokoll neu">Neu laden</button>
+                <button class="btn btn-secondary" type="button" id="audit_more" title="Lädt weitere ältere Protokolleinträge">Mehr laden</button>
+                <button class="btn btn-secondary" type="button" id="audit_clear_table" title="Leert nur die aktuell angezeigte Tabelle (nicht die Datenbank)">Tabelle leeren</button>
+                <button class="btn btn-secondary" type="button" id="audit_clear_all" title="Löscht alle Protokolleinträge dauerhaft aus der Datenbank">Alle Logs leeren</button>
                 <label style="display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); border-radius:10px;">
                   <input type="checkbox" id="audit_auto" />
                   Auto‑Refresh
@@ -3376,7 +3851,7 @@ if ($can_manage_users) {
               <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modal_audit_title" tabindex="-1">
                 <div class="modal-header">
                   <h2 class="modal-title" id="modal_audit_title">Audit‑Eintrag</h2>
-                  <button class="modal-close" type="button" data-modal-close>Schließen</button>
+                  <button class="modal-close" type="button" data-modal-close title="Schließt dieses Dialogfenster">Schließen</button>
                 </div>
 
                 <div id="audit_meta" class="grid" style="margin-top: 12px; grid-template-columns: 1fr 1fr;"></div>
@@ -3445,6 +3920,81 @@ if ($can_manage_users) {
           });
           const initial = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
           setTheme(initial, false);
+        }
+
+        // @doc-section settings-client
+        // @doc-purpose Verwaltet Designeinstellungen, Sprache, Veranstaltungsart und App-Reset.
+        const settingsTheme = document.getElementById('settings_theme');
+        const settingsAccent = document.getElementById('settings_accent');
+        const settingsLanguage = document.getElementById('settings_language');
+        const settingsEventType = document.getElementById('settings_event_type');
+        const settingsResetBtn = document.getElementById('settings_reset_btn');
+        const accentColors = {
+          rot: '#E30613',
+          blau: '#0569b4',
+          gelb: '#FFED00'
+        };
+        const applyAccent = (accent) => {
+          const color = accentColors[accent] || accentColors.rot;
+          document.documentElement.style.setProperty('--dlrg-rot', color);
+          try { localStorage.setItem('admin_accent', accent); } catch (e) {}
+        };
+        const applyLanguage = (lang) => {
+          document.documentElement.setAttribute('lang', lang);
+          try { localStorage.setItem('admin_language', lang); } catch (e) {}
+        };
+        const applyEventType = (type) => {
+          try { localStorage.setItem('admin_event_type', type); } catch (e) {}
+        };
+        if (settingsTheme) {
+          const syncSettingsTheme = () => {
+            const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            settingsTheme.value = current;
+          };
+          syncSettingsTheme();
+          settingsTheme.addEventListener('change', () => {
+            setTheme(settingsTheme.value, true);
+          });
+          window.addEventListener('admin-theme-changed', syncSettingsTheme);
+        }
+        if (settingsAccent) {
+          const savedAccent = (() => { try { return localStorage.getItem('admin_accent'); } catch (e) { return null; } })();
+          if (savedAccent && accentColors[savedAccent]) {
+            settingsAccent.value = savedAccent;
+            applyAccent(savedAccent);
+          }
+          settingsAccent.addEventListener('change', () => applyAccent(settingsAccent.value));
+        }
+        if (settingsLanguage) {
+          const savedLang = (() => { try { return localStorage.getItem('admin_language'); } catch (e) { return null; } })();
+          if (savedLang) {
+            settingsLanguage.value = savedLang;
+            applyLanguage(savedLang);
+          }
+          settingsLanguage.addEventListener('change', () => applyLanguage(settingsLanguage.value));
+        }
+        if (settingsEventType) {
+          const savedType = (() => { try { return localStorage.getItem('admin_event_type'); } catch (e) { return null; } })();
+          if (savedType) {
+            settingsEventType.value = savedType;
+          }
+          settingsEventType.addEventListener('change', () => applyEventType(settingsEventType.value));
+        }
+        if (settingsResetBtn) {
+          settingsResetBtn.addEventListener('click', () => {
+            if (confirm('Möchten Sie wirklich alle lokalen Daten und Cookies löschen? Die Seite wird danach neu geladen.')) {
+              try {
+                localStorage.clear();
+                sessionStorage.clear();
+              } catch (e) {}
+              document.cookie.split(';').forEach((c) => {
+                const eqPos = c.indexOf('=');
+                const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
+                document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+              });
+              location.reload();
+            }
+          });
         }
 
         const adminShellResizer = document.getElementById('admin_page_shell_resizer');
@@ -4017,6 +4567,12 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
             setContentFrameHeader(String(nextSection.getAttribute('data-admin-section-title') || nextSection.id));
             renderAdminAnchors(nextSection, activeTargetId);
 
+            // @doc-note Tabellenfilter und Token-Eingabe nur anzeigen, wenn die Teilnehmer-Tabelle sichtbar ist.
+            const tableControls = document.getElementById('admin_table_controls');
+            if (tableControls) {
+              tableControls.hidden = nextSection.id !== 'participants_list';
+            }
+
             if (options.updateHash !== false) {
               history.replaceState(null, '', `#${activeTargetId}`);
             }
@@ -4039,6 +4595,11 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
             });
             setActiveNavigationState('');
             setActiveFrameLinkState(url);
+            // @doc-note Tabellenfilter auch bei geladenen Unterseiten ausblenden.
+            const tableControlsSub = document.getElementById('admin_table_controls');
+            if (tableControlsSub) {
+              tableControlsSub.hidden = true;
+            }
             adminAnchorNav.replaceChildren();
             adminAnchorEmpty.hidden = false;
             adminAnchorCopy.textContent = 'Diese Unterseite wird direkt im rechten Frame geladen. Interne Sprungmarken stehen hier nicht zentral zur Verfuegung.';
@@ -4646,6 +5207,142 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
         }
 
       });
+
+      // @doc-section webauthn-client
+      // @doc-purpose Steuert die biometrische Anmeldung und Registrierung per WebAuthn.
+      const waB64urlEncode = (bytes) => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+        let s = '';
+        const len = bytes.length;
+        for (let i = 0; i < len; i += 3) {
+          const b1 = bytes[i], b2 = i + 1 < len ? bytes[i + 1] : 0, b3 = i + 2 < len ? bytes[i + 2] : 0;
+          s += chars[b1 >> 2];
+          s += chars[((b1 & 3) << 4) | (b2 >> 4)];
+          s += i + 1 < len ? chars[((b2 & 15) << 2) | (b3 >> 6)] : '=';
+          s += i + 2 < len ? chars[b3 & 63] : '=';
+        }
+        return s.replace(/=+$/g, '');
+      };
+      const waB64urlDecode = (s) => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+        const pad = s.length % 4;
+        if (pad) s += '='.repeat(4 - pad);
+        const out = [];
+        for (let i = 0; i < s.length; i += 4) {
+          const e1 = chars.indexOf(s[i]), e2 = chars.indexOf(s[i + 1]);
+          const e3 = s[i + 2] === '=' ? 0 : chars.indexOf(s[i + 2]);
+          const e4 = s[i + 3] === '=' ? 0 : chars.indexOf(s[i + 3]);
+          out.push((e1 << 2) | (e2 >> 4));
+          if (s[i + 2] !== '=') out.push(((e2 & 15) << 4) | (e3 >> 2));
+          if (s[i + 3] !== '=') out.push(((e3 & 3) << 6) | e4);
+        }
+        return new Uint8Array(out);
+      };
+      const waStrToBytes = (s) => new TextEncoder().encode(s);
+
+      const waLoginBtn = document.getElementById('webauthn_login_btn');
+      const waLoginStatus = document.getElementById('webauthn_login_status');
+      if (waLoginBtn) {
+        waLoginBtn.addEventListener('click', async () => {
+          if (!window.PublicKeyCredential) {
+            if (waLoginStatus) waLoginStatus.textContent = 'Biometrische Anmeldung wird in diesem Browser nicht unterstützt.';
+            return;
+          }
+          const username = (document.getElementById('login_username') || {}).value || '';
+          if (!username) {
+            if (waLoginStatus) waLoginStatus.textContent = 'Bitte zuerst den Benutzernamen eingeben.';
+            return;
+          }
+          try {
+            const fd = new FormData();
+            fd.append('webauthn_action', 'login_challenge');
+            fd.append('username', username);
+            const res = await fetch('admin.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!data.success) {
+              if (waLoginStatus) waLoginStatus.textContent = data.error || 'Fehler.';
+              return;
+            }
+            const challenge = waStrToBytes(data.challenge);
+            const allow = data.allowCredentials.map(c => ({ type: c.type, id: waB64urlDecode(c.id) }));
+            const assertion = await navigator.credentials.get({
+              publicKey: {
+                challenge,
+                rpId: data.rpId,
+                allowCredentials: allow,
+                userVerification: data.userVerification,
+                timeout: data.timeout || 60000,
+              }
+            });
+            const fd2 = new FormData();
+            fd2.append('webauthn_action', 'login');
+            fd2.append('credential_id', waB64urlEncode(new Uint8Array(assertion.rawId)));
+            fd2.append('client_data_json', waB64urlEncode(new Uint8Array(assertion.response.clientDataJSON)));
+            fd2.append('authenticator_data', waB64urlEncode(new Uint8Array(assertion.response.authenticatorData)));
+            fd2.append('signature', waB64urlEncode(new Uint8Array(assertion.response.signature)));
+            const res2 = await fetch('admin.php', { method: 'POST', body: fd2 });
+            const data2 = await res2.json();
+            if (data2.success) {
+              if (waLoginStatus) waLoginStatus.textContent = 'Anmeldung erfolgreich. Leite weiter…';
+              setTimeout(() => { location.href = data2.redirect || 'admin.php'; }, 300);
+            } else {
+              if (waLoginStatus) waLoginStatus.textContent = data2.error || 'Anmeldung fehlgeschlagen.';
+            }
+          } catch (e) {
+            if (waLoginStatus) waLoginStatus.textContent = 'Biometrische Anmeldung abgebrochen oder fehlgeschlagen.';
+          }
+        });
+      }
+
+      const waRegisterBtn = document.getElementById('webauthn_register_btn');
+      const waRegisterStatus = document.getElementById('webauthn_register_status');
+      if (waRegisterBtn) {
+        waRegisterBtn.addEventListener('click', async () => {
+          if (!window.PublicKeyCredential) {
+            if (waRegisterStatus) waRegisterStatus.textContent = 'WebAuthn wird in diesem Browser nicht unterstützt.';
+            return;
+          }
+          try {
+            const fd = new FormData();
+            fd.append('webauthn_action', 'register_challenge');
+            const res = await fetch('admin.php', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (!data.success) {
+              if (waRegisterStatus) waRegisterStatus.textContent = data.error || 'Fehler.';
+              return;
+            }
+            const challenge = waStrToBytes(data.challenge);
+            const userId = waStrToBytes(data.user.id);
+            const cred = await navigator.credentials.create({
+              publicKey: {
+                challenge,
+                rp: data.rp,
+                user: { id: userId, name: data.user.name, displayName: data.user.displayName },
+                pubKeyCredParams: data.pubKeyCredParams,
+                authenticatorSelection: data.authenticatorSelection,
+                timeout: data.timeout,
+                attestation: data.attestation,
+              }
+            });
+            const credName = (document.getElementById('webauthn_credential_name') || {}).value || '';
+            const fd2 = new FormData();
+            fd2.append('webauthn_action', 'register');
+            fd2.append('client_data_json', waB64urlEncode(new Uint8Array(cred.response.clientDataJSON)));
+            fd2.append('attestation_object', waB64urlEncode(new Uint8Array(cred.response.attestationObject)));
+            fd2.append('credential_name', credName);
+            const res2 = await fetch('admin.php', { method: 'POST', body: fd2 });
+            const data2 = await res2.json();
+            if (data2.success) {
+              if (waRegisterStatus) waRegisterStatus.textContent = data2.message || 'Schlüssel registriert.';
+              setTimeout(() => location.reload(), 1000);
+            } else {
+              if (waRegisterStatus) waRegisterStatus.textContent = data2.error || 'Registrierung fehlgeschlagen.';
+            }
+          } catch (e) {
+            if (waRegisterStatus) waRegisterStatus.textContent = 'Registrierung abgebrochen oder fehlgeschlagen.';
+          }
+        });
+      }
     </script>
   </body>
 </html>

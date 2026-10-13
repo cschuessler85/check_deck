@@ -594,6 +594,38 @@ function auth_can(PDO $pdo, string $permission): bool
     return in_array($permission, $perms, true);
 }
 
+function auth_verify_token(PDO $pdo, string $raw_token): ?array
+{
+    if ($raw_token === '') {
+        return null;
+    }
+    $hash = hash('sha256', $raw_token);
+    try {
+        $stmt = $pdo->prepare('SELECT t.id, t.created_by, t.revoked, t.expires_at, u.id AS user_id, u.username, u.role FROM access_tokens t JOIN users u ON u.id = t.created_by WHERE t.token_hash = ? LIMIT 1');
+        $stmt->execute([$hash]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+        if (!empty($row['revoked'])) {
+            return null;
+        }
+        if (!empty($row['expires_at']) && strtotime((string)$row['expires_at']) < time()) {
+            return null;
+        }
+        $upd = $pdo->prepare('UPDATE access_tokens SET last_used_at = NOW() WHERE id = ?');
+        $upd->execute([(int)$row['id']]);
+        return [
+            'user_id' => (int)$row['user_id'],
+            'username' => (string)$row['username'],
+            'role' => (string)$row['role'],
+            'token_id' => (int)$row['id'],
+        ];
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
 function auth_require_role(PDO $pdo, array $roles, string $redirect_to = 'admin.php'): void
 {
     $user = auth_current_user($pdo);
@@ -1742,4 +1774,167 @@ function event_live_load_overview(PDO $pdo): array
 {
     return live_load_overview($pdo);
 }
+
+// @doc-section webauthn
+// @doc-purpose Implementiert die biometrische Anmeldung per WebAuthn (Fingerabdruck/Gesicht).
+function webauthn_base64url_encode(string $data): string
+{
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+function webauthn_base64url_decode(string $data): string
+{
+    return base64_decode(strtr($data, '-_', '+/'));
+}
+
+function webauthn_cbor_decode(string $data, int &$offset = 0)
+{
+    if ($offset >= strlen($data)) {
+        return null;
+    }
+    $initial = $offset;
+    $ib = ord($data[$offset++]);
+    $major = $ib >> 5;
+    $info = $ib & 0x1f;
+    if ($info < 24) {
+        $val = $info;
+    } elseif ($info === 24) {
+        $val = ord($data[$offset++]);
+    } elseif ($info === 25) {
+        $val = unpack('n', substr($data, $offset, 2))[1];
+        $offset += 2;
+    } elseif ($info === 26) {
+        $val = unpack('N', substr($data, $offset, 4))[1];
+        $offset += 4;
+    } else {
+        return null;
+    }
+    switch ($major) {
+        case 0:
+            return $val;
+        case 1:
+            return -1 - $val;
+        case 2:
+        case 3:
+            $bytes = substr($data, $offset, $val);
+            $offset += $val;
+            return $major === 2 ? $bytes : $bytes;
+        case 4:
+            $arr = [];
+            for ($i = 0; $i < $val; $i++) {
+                $arr[] = webauthn_cbor_decode($data, $offset);
+            }
+            return $arr;
+        case 5:
+            $map = [];
+            for ($i = 0; $i < $val; $i++) {
+                $k = webauthn_cbor_decode($data, $offset);
+                $v = webauthn_cbor_decode($data, $offset);
+                $map[$k] = $v;
+            }
+            return $map;
+        default:
+            return null;
+    }
+}
+
+function webauthn_cose_public_key_to_pem(array $coseKey): ?string
+{
+    $kty = $coseKey[1] ?? null;
+    if ($kty !== 2) {
+        return null;
+    }
+    $x = $coseKey[-2] ?? '';
+    $y = $coseKey[-3] ?? '';
+    if (strlen($x) !== 32 || strlen($y) !== 32) {
+        return null;
+    }
+    $der = "\x30\x59\x30\x13\x06\x07\x2a\x86\x48\xce\x3d\x02\x01\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07\x03\x42\x00\x04" . $x . $y;
+    $pem = "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END PUBLIC KEY-----\n";
+    return $pem;
+}
+
+function webauthn_generate_challenge(): string
+{
+    return bin2hex(random_bytes(32));
+}
+
+function webauthn_rp_id(): string
+{
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $host = explode(':', $host)[0];
+    return $host;
+}
+
+function webauthn_verify_registration(string $clientDataJSON, string $attestationObject, string $expectedChallenge): ?array
+{
+    $clientData = json_decode($clientDataJSON, true);
+    if (!$clientData || ($clientData['type'] ?? '') !== 'webauthn.create') {
+        return null;
+    }
+    if (!hash_equals($expectedChallenge, (string)($clientData['challenge'] ?? ''))) {
+        return null;
+    }
+    $attObj = webauthn_cbor_decode($attestationObject);
+    if (!is_array($attObj)) {
+        return null;
+    }
+    $authData = $attObj['authData'] ?? '';
+    if (strlen($authData) < 55) {
+        return null;
+    }
+    $rpIdHash = substr($authData, 0, 32);
+    $expectedRpIdHash = hash('sha256', webauthn_rp_id());
+    if (!hash_equals($expectedRpIdHash, bin2hex($rpIdHash))) {
+        return null;
+    }
+    $flags = ord($authData[32]);
+    if (($flags & 0x01) === 0) {
+        return null;
+    }
+    if (($flags & 0x40) === 0) {
+        return null;
+    }
+    $credentialIdLen = unpack('n', substr($authData, 53, 2))[1];
+    $credentialId = substr($authData, 55, $credentialIdLen);
+    $coseKeyOffset = 55 + $credentialIdLen;
+    $coseKey = webauthn_cbor_decode($authData, $coseKeyOffset);
+    if (!is_array($coseKey)) {
+        return null;
+    }
+    $pem = webauthn_cose_public_key_to_pem($coseKey);
+    if ($pem === null) {
+        return null;
+    }
+    return [
+        'credential_id' => webauthn_base64url_encode($credentialId),
+        'public_key' => $pem,
+    ];
+}
+
+function webauthn_verify_authentication(string $credentialIdB64, string $clientDataJSON, string $authenticatorData, string $signature, string $publicKeyPem, string $expectedChallenge): bool
+{
+    $clientData = json_decode($clientDataJSON, true);
+    if (!$clientData || ($clientData['type'] ?? '') !== 'webauthn.get') {
+        return false;
+    }
+    if (!hash_equals($expectedChallenge, (string)($clientData['challenge'] ?? ''))) {
+        return false;
+    }
+    $rpIdHash = substr($authenticatorData, 0, 32);
+    $expectedRpIdHash = hash('sha256', webauthn_rp_id());
+    if (!hash_equals($expectedRpIdHash, bin2hex($rpIdHash))) {
+        return false;
+    }
+    $flags = ord($authenticatorData[32]);
+    if (($flags & 0x01) === 0) {
+        return false;
+    }
+    $clientDataHash = hash('sha256', $clientDataJSON, true);
+    $signedData = $authenticatorData . $clientDataHash;
+    $sig = $signature;
+    $result = openssl_verify($signedData, $sig, $publicKeyPem, OPENSSL_ALGO_SHA256);
+    return $result === 1;
+}
+
 
