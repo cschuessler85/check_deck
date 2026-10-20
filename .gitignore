@@ -71,6 +71,10 @@ Thumbs.db
 *.bak
 *.old
 
+# --- Composer-Abhaengigkeiten ---
+# vendor wird nicht versioniert; bei Bedarf per "composer install" wiederherstellen
+live_app/vendor/
+
 # --- Externe Projekte (nicht im Repo) ---
 lane_counter/
 node_modules
