@@ -1,5 +1,8 @@
 # --- Umgebungs- und Zugangsdaten ---
-# .env bleibt im Git (DB-Zugangsdaten wie gewuenscht erhalten)
+# .env wird NICHT versioniert. Im Repo liegt nur die Vorlage .env.example.
+.env
+.env.*
+!.env.example
 live_app/config/http/.htpasswd
 
 # --- Datenbanken und Laufzeitdaten ---
@@ -22,6 +25,14 @@ data_test_sync.sqlite
 supply_mask/.old/schwimmer-final.csv
 supply_mask/.old/teilnehmer.csv
 supply_mask/go/schwimmer-final.csv
+# Tabellarische Daten generell nicht versionieren (nur Beispielvorlagen erlaubt)
+*.csv
+*.xlsx
+*.xls
+*.ods
+!*example*.csv
+!*.example.csv
+!*vorlage*.csv
 
 # --- Sessions, Backups und Logs ---
 /storage/
