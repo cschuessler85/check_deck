@@ -141,9 +141,13 @@ $assetBase = $assetBase === '' ? '' : $assetBase;
   <body class="page-reg">
     <div class="page">
       <div class="container">
+        <div class="app-logo-bar">
+          <picture>
+            <source type="image/webp" srcset="<?php echo escape($assetBase . '/assets/check_deck_logo.webp'); ?> 1600w" sizes="(max-width: 360px) 120px, 240px" />
+            <img src="<?php echo escape($assetBase . '/assets/check_deck_logo.jpg'); ?>" alt="Check Deck – Dein Eventmanager" class="reg-logo" width="1600" height="893" decoding="async" />
+          </picture>
+        </div>
         <header class="reg-header">
-          <!-- @doc-note Das DLRG-Logo verankert die Registrierungsseite visuell im Vereinskontext. -->
-          <img src="<?php echo escape($assetBase . '/assets/logo.png'); ?>" alt="DLRG Sankt Augustin e.V." class="reg-logo" decoding="async" />
           <h1 class="reg-title">
             <span>Anmeldung zum</span>
             <span>24‑Stunden‑Schwimmen</span>
@@ -485,9 +489,11 @@ $assetBase = $assetBase === '' ? '' : $assetBase;
           </div>
         <?php endif; ?>
 
-        <p class="muted" style="margin-top:1px; display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
-          <a class="link-btn" href="impressum.php">Impressum</a>
-        </p>
+        <footer class="site-footer">
+          <img src="<?php echo escape($assetBase . '/assets/check_deck_logo.jpg'); ?>" alt="Check Deck – Dein Eventmanager" class="site-footer-logo" width="1600" height="893" decoding="async" />
+          <p>24‑Stunden‑Schwimmen – DLRG Ortsgruppe St. Augustin e.V.</p>
+          <p><a class="link-btn" href="impressum.php">Impressum</a></p>
+        </footer>
       </div>
     </div>
     <script src="<?php echo escape($assetBase . '/assets/app.js'); ?>"></script>

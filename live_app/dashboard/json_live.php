@@ -63,6 +63,8 @@ function json_live_html(string $value): string
             --success: #16a34a;
             --warning: #ea580c;
             --danger: #dc2626;
+            --font-family-ui: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+            --font-size-button: 17px;
         }
 
         * {
@@ -76,7 +78,7 @@ function json_live_html(string $value): string
 
         body {
             margin: 0;
-            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: var(--font-family-ui);
             color: var(--ink);
             background:
                 radial-gradient(1100px 640px at 15% 0%, rgba(255, 237, 0, 0.22), transparent 58%),
@@ -176,7 +178,8 @@ function json_live_html(string $value): string
             border-radius: 14px;
             padding: 12px 16px;
             min-height: 46px;
-            font-size: 14px;
+            font-family: var(--font-family-ui);
+            font-size: var(--font-size-button);
             font-weight: 800;
             cursor: pointer;
             text-decoration: none;
@@ -184,6 +187,7 @@ function json_live_html(string $value): string
             align-items: center;
             justify-content: center;
             gap: 10px;
+            text-align: center;
             transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
         }
 

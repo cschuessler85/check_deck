@@ -419,7 +419,10 @@ $paidPct = $gesamt > 0 ? (int)round(($bezahlt / $gesamt) * 100) : 0;
         <div class="container dash-container">
             <div class="dash-head">
                 <div class="dash-title">
-                    <img src="<?php echo escape($rootBase . '/assets/logo.png'); ?>" alt="DLRG Sankt Augustin e.V." class="reg-logo" width="1714" height="332" decoding="async" style="max-width:220px;height:auto;margin-bottom:8px;" />
+                    <picture>
+                        <source type="image/webp" srcset="<?php echo escape($rootBase . '/assets/check_deck_logo.webp'); ?> 1600w" sizes="240px" />
+                        <img src="<?php echo escape($rootBase . '/assets/check_deck_logo.jpg'); ?>" alt="Check Deck – Dein Eventmanager" class="reg-logo" width="1600" height="893" decoding="async" style="margin-bottom:8px;" />
+                    </picture>
                     <div class="brand">
                         <h1>Dashboard</h1>
                         <span class="badge">Live</span>

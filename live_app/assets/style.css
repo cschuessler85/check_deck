@@ -58,7 +58,11 @@ input,
 select,
 summary {
   font: inherit;
-  font-family: inherit;
+  font-family: var(--font-family-ui);
+}
+
+button {
+  text-align: center;
 }
 
 .page-reg {
@@ -108,11 +112,97 @@ header {
   margin-bottom: 18px;
 }
 
+/* @doc-note Eigenstaendiger Sticky-Container ausschliesslich fuer das Anwendungslogo, DOM-vor allen Frames positioniert. Haelt das Logo dauerhaft im sichtbaren Viewport. */
+.app-logo-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.625rem 0.75rem;
+  margin-bottom: 0.75rem;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+/* @doc-note Logos werden responsiv auf Basis von rem skaliert. aspect-ratio verhindert Cumulative Layout Shift (CLS). Mobile-Minimum 120px (7.5rem) ab 360px, Desktop-Maximum 240px (15rem). */
 .reg-logo {
-  max-width: 100%;
+  width: 100%;
+  max-width: 15rem;
   height: auto;
-  margin: 0 auto 16px auto;
+  aspect-ratio: 1600 / 893;
+  object-fit: contain;
+  margin: 0 auto;
   display: block;
+}
+
+@media (min-width: 360px) {
+  .reg-logo {
+    min-width: 7.5rem;
+  }
+}
+
+/* @doc-note Kleines Logo am Kopf der Admin-Seitenleiste (Hauptnavigation). */
+.admin-side-brand {
+  display: flex;
+  justify-content: center;
+  padding: 8px 4px 14px 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+
+.admin-side-brand-logo {
+  width: 100%;
+  max-width: 10rem;
+  height: auto;
+  aspect-ratio: 1600 / 893;
+  object-fit: contain;
+  display: block;
+}
+
+@media (min-width: 360px) {
+  .admin-side-brand-logo {
+    min-width: 6.875rem;
+  }
+}
+
+/* @doc-note Gemeinsamer Footer mit Logo auf den Hauptseiten. */
+.site-footer {
+  margin-top: var(--spacing-lg);
+  padding: 18px 12px 6px 12px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.site-footer-logo {
+  width: 100%;
+  max-width: 12.5rem;
+  height: auto;
+  aspect-ratio: 1600 / 893;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 10px auto;
+  opacity: 0.92;
+}
+
+@media (min-width: 360px) {
+  .site-footer-logo {
+    min-width: 7.5rem;
+  }
+}
+
+/* @doc-note Im Dunkelmodus wird die dunkle Logo-Variante als WebP eingeblendet, damit das Branding auf dunklem Hintergrund lesbar bleibt. */
+html[data-theme="dark"] .reg-logo,
+html[data-theme="dark"] .admin-side-brand-logo,
+html[data-theme="dark"] .site-footer-logo {
+  content: url('check_deck_logo_dark.webp');
+}
+
+.site-footer p {
+  margin: 4px 0;
 }
 
 .reg-title {
@@ -345,6 +435,8 @@ select {
   cursor: pointer;
   color: var(--muted);
   border-radius: 8px;
+  font-family: var(--font-family-ui);
+  text-align: center;
 }
 
 .pw-toggle:focus {
@@ -440,7 +532,7 @@ select:focus {
   color: #fff;
   padding: 13px 16px;
   border-radius: 10px;
-  font-family: inherit;
+  font-family: var(--font-family-ui);
   font-size: var(--font-size-button);
   font-weight: 800;
   cursor: pointer;
@@ -469,10 +561,13 @@ select:focus {
 .btn-small {
   min-height: 40px;
   padding: 9px 12px;
-  font-size: var(--font-size-button-small);
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-button);
   line-height: 1.2;
   font-weight: 800;
   border-radius: 8px;
+  text-align: center;
+  justify-content: center;
 }
 
 .btn-flat {
@@ -662,7 +757,7 @@ html[data-display-mode="mobile"] .item-actions {
 
 .sidebar-links .btn {
   width: 100%;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .page-sidebar .admin-links-grid,
@@ -684,7 +779,7 @@ html[data-display-mode="mobile"] .item-actions {
 .page-sidebar .admin-session-actions > .btn,
 .page-sidebar .admin-session-actions > a {
   width: 100%;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .sidebar-label {
@@ -1042,7 +1137,8 @@ html[data-theme="dark"] .admin-session-note.is-warn {
   padding-inline: 10px;
   padding-block: 8px;
   gap: 6px;
-  font-size: 13px;
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-button);
   line-height: 1.2;
   justify-content: center;
 }
@@ -1252,7 +1348,7 @@ html[data-theme="dark"] .admin-session-note.is-warn {
   border-radius: 10px;
   background: var(--dlrg-schwarz);
   color: #fff;
-  font-family: inherit;
+  font-family: var(--font-family-ui);
   font-size: var(--font-size-button);
   font-weight: 800;
   line-height: 1.2;
@@ -1261,6 +1357,7 @@ html[data-theme="dark"] .admin-session-note.is-warn {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  text-align: center;
   transition: background 140ms ease, box-shadow 140ms ease, border-radius 140ms ease;
 }
 
@@ -1658,9 +1755,11 @@ tr:nth-child(even) .participant-actions-cell {
   border: 0;
   padding: 0;
   color: var(--dlrg-blau);
-  font: inherit;
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-button);
   font-weight: 800;
   cursor: pointer;
+  text-align: center;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -1729,10 +1828,12 @@ tr:nth-child(even) .participant-actions-cell {
   color: var(--dlrg-schwarz);
   border-radius: 10px;
   padding: 10px 12px;
-  font-family: inherit;
+  font-family: var(--font-family-ui);
   font-size: var(--font-size-button);
   font-weight: 900;
   cursor: pointer;
+  text-align: center;
+  justify-content: center;
 }
 
 .modal-close:focus {

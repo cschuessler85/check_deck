@@ -416,8 +416,13 @@ if ($errorMessage === '') {
 <body>
   <div class="page">
     <div class="container">
+      <div class="app-logo-bar">
+        <picture>
+          <source type="image/webp" srcset="<?= sync_escape($assetBase . '/assets/check_deck_logo.webp') ?> 1600w" sizes="(max-width: 360px) 120px, 240px">
+          <img src="<?= sync_escape($assetBase . '/assets/check_deck_logo.jpg') ?>" alt="Check Deck – Dein Eventmanager" class="reg-logo" width="1600" height="893" decoding="async">
+        </picture>
+      </div>
       <header class="reg-header">
-        <img src="<?= sync_escape($assetBase . '/assets/logo.png') ?>" alt="DLRG Sankt Augustin e.V." class="reg-logo" width="1714" height="332" decoding="async">
         <h1 class="reg-title">
           <span>Admin</span>
           <span>Teilnehmer synchronisieren</span>

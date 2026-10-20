@@ -968,8 +968,13 @@ try {
       height: 34px;
       border-radius: 10px;
       border: 1px solid var(--border);
-      font-size: 16px;
+      font-family: var(--font-family-ui);
+      font-size: var(--font-size-button);
+      text-align: center;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .icon-btn:disabled {
@@ -1079,8 +1084,13 @@ try {
 <body>
   <div class="page">
     <div class="container">
+      <div class="app-logo-bar">
+        <picture>
+          <source type="image/webp" srcset="<?= export_html($assetBase . '/assets/check_deck_logo.webp') ?> 1600w" sizes="(max-width: 360px) 120px, 240px">
+          <img src="<?= export_html($assetBase . '/assets/check_deck_logo.jpg') ?>" alt="Check Deck – Dein Eventmanager" class="reg-logo" width="1600" height="893" decoding="async">
+        </picture>
+      </div>
       <header class="reg-header">
-        <img src="<?= export_html($assetBase . '/assets/logo.png') ?>" alt="DLRG Sankt Augustin e.V." class="reg-logo" width="1714" height="332" decoding="async">
         <h1 class="reg-title">
           <span>Admin</span>
           <span>Daten exportieren</span>

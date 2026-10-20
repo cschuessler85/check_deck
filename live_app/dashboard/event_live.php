@@ -73,6 +73,8 @@ if (isset($_GET['format']) && (string)$_GET['format'] === 'json') {
             --border: rgba(255, 255, 255, 0.14);
             --success: #22c55e;
             --shadow: 0 22px 60px rgba(2, 6, 23, 0.35);
+            --font-family-ui: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+            --font-size-button: 17px;
         }
 
         * {
@@ -86,7 +88,7 @@ if (isset($_GET['format']) && (string)$_GET['format'] === 'json') {
         }
 
         body {
-            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: var(--font-family-ui);
             color: var(--ink);
             background:
                 radial-gradient(1100px 620px at 12% 8%, rgba(255, 237, 0, 0.20), transparent 58%),
@@ -233,7 +235,8 @@ if (isset($_GET['format']) && (string)$_GET['format'] === 'json') {
             border-radius: 14px;
             min-height: 48px;
             padding: 10px 16px;
-            font-size: 15px;
+            font-family: var(--font-family-ui);
+            font-size: var(--font-size-button);
             font-weight: 800;
         }
 
@@ -247,6 +250,7 @@ if (isset($_GET['format']) && (string)$_GET['format'] === 'json') {
             background: rgba(255, 255, 255, 0.12);
             text-decoration: none;
             border-color: rgba(255, 255, 255, 0.12);
+            text-align: center;
         }
 
         .btn-primary {
@@ -739,7 +743,10 @@ if (isset($_GET['format']) && (string)$_GET['format'] === 'json') {
         <?php if (!$isStandalone): ?>
         <section class="toolbar">
             <div class="toolbar-title">
-                <img src="<?php echo escape($rootBase . '/assets/logo.png'); ?>" alt="DLRG Sankt Augustin e.V." width="1714" height="332" decoding="async" style="max-width:180px;height:auto;margin-bottom:10px;" />
+                <picture>
+                    <source type="image/webp" srcset="<?php echo escape($rootBase . '/assets/check_deck_logo.webp'); ?> 1600w" sizes="240px" />
+                    <img src="<?php echo escape($rootBase . '/assets/check_deck_logo.jpg'); ?>" alt="Check Deck – Dein Eventmanager" class="reg-logo" width="1600" height="893" decoding="async" style="margin-bottom:10px;" />
+                </picture>
                 <div class="eyebrow">
                     <span class="live-dot" id="liveDot"></span>
                     <span>Event Live Kiosk</span>

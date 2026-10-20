@@ -73,3 +73,4 @@ Thumbs.db
 
 # --- Externe Projekte (nicht im Repo) ---
 lane_counter/
+node_modules

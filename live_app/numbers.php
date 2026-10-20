@@ -570,9 +570,13 @@ $is_standalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '
   <body>
     <div class="page">
       <div class="container">
+        <div class="app-logo-bar">
+          <picture>
+            <source type="image/webp" srcset="<?php echo escape($assetBase . '/assets/check_deck_logo.webp'); ?> 1600w" sizes="(max-width: 360px) 120px, 240px" />
+            <img src="<?php echo escape($assetBase . '/assets/check_deck_logo.jpg'); ?>" alt="Check Deck – Dein Eventmanager" class="reg-logo" width="1600" height="893" decoding="async" />
+          </picture>
+        </div>
         <header class="reg-header">
-          <!-- @doc-note Das gemeinsame Logo hält die Unterseite visuell im selben Anwendungskontext. -->
-          <img src="<?php echo escape($assetBase . '/assets/logo.png'); ?>" alt="DLRG Sankt Augustin e.V." class="reg-logo" width="1714" height="332" decoding="async" />
           <h1 class="reg-title">
             <span>Admin</span>
             <span>Startnummern-Verwaltung</span>

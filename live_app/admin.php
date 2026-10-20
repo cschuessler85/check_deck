@@ -1043,6 +1043,14 @@ if ($is_logged_in) {
                         }
 
                         $_SESSION['username'] = $newUsername;
+
+                        // @doc-note Aktualisiert die gecachten Benutzerdaten, damit die UI sofort die neuen Werte anzeigt.
+                        if (is_array($current_user)) {
+                            $current_user['username'] = $newUsername;
+                            if ($canEditRole && $newRole !== '') {
+                                $current_user['role'] = $newRole;
+                            }
+                        }
                     } catch (Throwable $e) {
                         if ($pdo->inTransaction()) {
                             $pdo->rollBack();
@@ -1572,8 +1580,41 @@ if ($can_manage_users) {
         --admin-sidebar-width: 336px;
         --admin-sidebar-min: 280px;
         --admin-sidebar-max: 500px;
+        /* Responsive Button-Schriftgroesse: proportional zur Panel-Breite. */
+        --admin-btn-font-min: 12px;
+        --admin-btn-font-max: 17px;
+        /* 2.6cqw entspricht bei ca. 654px Containerbreite 17px, bei ca. 462px 12px. */
+        --admin-btn-font-calc: 2.6cqw;
         width: 100%;
         align-items: start;
+      }
+
+      /* Container-Queries: Button-Schriftgroesse skaliert mit der Panel-Breite. */
+      .admin-page-main,
+      .admin-page-sidebar {
+        container-type: inline-size;
+      }
+
+      .admin-page-shell .btn,
+      .admin-page-shell .admin-link-btn,
+      .admin-page-shell .admin-nav-btn,
+      .admin-page-shell .admin-anchor-btn,
+      .admin-page-shell .link-btn,
+      .admin-page-shell .icon-btn,
+      .admin-page-shell .modal-close {
+        font-size: clamp(var(--admin-btn-font-min), var(--admin-btn-font-calc), var(--admin-btn-font-max)) !important;
+        transition: font-size 140ms ease;
+      }
+
+      /* Bei aktiver Groessenanpassung (Drag) Transition deaktivieren fuer direkte Reaktion. */
+      body.admin-shell-resizing .admin-page-shell .btn,
+      body.admin-shell-resizing .admin-page-shell .admin-link-btn,
+      body.admin-shell-resizing .admin-page-shell .admin-nav-btn,
+      body.admin-shell-resizing .admin-page-shell .admin-anchor-btn,
+      body.admin-shell-resizing .admin-page-shell .link-btn,
+      body.admin-shell-resizing .admin-page-shell .icon-btn,
+      body.admin-shell-resizing .admin-page-shell .modal-close {
+        transition: none;
       }
 
       .admin-page-sidebar {
@@ -1828,9 +1869,24 @@ if ($can_manage_users) {
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.56);
       }
 
+      .admin-side-group[hidden] {
+        display: none !important;
+      }
+
       .admin-side-group-head {
         display: grid;
         gap: 4px;
+      }
+
+      .admin-side-subgroup {
+        display: grid;
+        gap: 6px;
+      }
+
+      .admin-side-subgroup + .admin-side-subgroup {
+        margin-top: 4px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(40, 50, 70, 0.12);
       }
 
       .admin-side-title {
@@ -1914,8 +1970,9 @@ if ($can_manage_users) {
         width: 100%;
         min-height: 38px;
         padding: 7px 12px;
-        font-size: 14px;
-        justify-content: flex-start;
+        font-family: var(--font-family-ui);
+        font-size: var(--font-size-button);
+        justify-content: center;
         border-radius: 10px;
       }
 
@@ -2386,6 +2443,10 @@ if ($can_manage_users) {
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
       }
 
+      html[data-theme="dark"] .admin-side-subgroup + .admin-side-subgroup {
+        border-top-color: rgba(255, 255, 255, 0.08);
+      }
+
       html[data-theme="dark"] .admin-anchor-btn.is-active-anchor {
         border-color: rgba(255, 237, 0, 0.24);
         color: #ffed00;
@@ -2667,7 +2728,7 @@ if ($can_manage_users) {
       }
 
       .users-create-action {
-        justify-content: flex-start;
+        justify-content: center;
       }
 
       @media (max-width: 700px) {
@@ -2710,9 +2771,14 @@ if ($can_manage_users) {
   <body class="admin-page">
     <div class="page">
       <div class="container" style="width: 100%;">
+        <div class="app-logo-bar">
+          <!-- @doc-note Eigenstaendiger Sticky-Container ausschliesslich fuer das Anwendungslogo, DOM-vor allen Frames. WebP mit JPG-Fallback. -->
+          <picture>
+            <source type="image/webp" srcset="<?php echo escape($assetBase . '/assets/check_deck_logo.webp'); ?> 1600w" sizes="(max-width: 360px) 120px, 240px" />
+            <img src="<?php echo escape($assetBase . '/assets/check_deck_logo.jpg'); ?>" alt="Check Deck – Dein Eventmanager" class="reg-logo" width="1600" height="893" decoding="async" />
+          </picture>
+        </div>
         <header class="reg-header">
-          <!-- @doc-note Das DLRG-Logo sitzt im Kopfbereich oberhalb des Admin-Titels. -->
-          <img src="<?php echo escape($assetBase . '/assets/logo.png'); ?>" alt="DLRG Sankt Augustin e.V." class="reg-logo" width="1714" height="332" decoding="async" />
           <h1 class="reg-title">
             <span>Admin</span>
             <span>24‑Stunden‑Schwimmen</span>
@@ -2812,6 +2878,13 @@ if ($can_manage_users) {
             </button>
             <aside class="page-sidebar admin-page-sidebar" id="admin_page_sidebar">
               <div class="panel admin-shell admin-shell-panel" style="margin-bottom: 15px;">
+                <!-- @doc-note Das Check-Deck-Logo steht am Kopf der Seitenleiste und verankert die Navigation im Markenkontext. -->
+                <div class="admin-side-brand">
+                  <picture>
+                    <source type="image/webp" srcset="<?php echo escape($assetBase . '/assets/check_deck_logo.webp'); ?> 1600w" sizes="160px" />
+                    <img src="<?php echo escape($assetBase . '/assets/check_deck_logo.jpg'); ?>" alt="Check Deck – Dein Eventmanager" class="admin-side-brand-logo" width="1600" height="893" decoding="async" />
+                  </picture>
+                </div>
                 <div class="admin-page-sidebar-mobile-head">
                   <div class="admin-page-sidebar-mobile-copy">
                     <p class="sidebar-label">Mobil-Menue</p>
@@ -2826,48 +2899,51 @@ if ($can_manage_users) {
                 <div class="admin-side-list">
                   <section class="admin-side-group">
                     <div class="admin-side-group-head">
-                      <p class="sidebar-label">Anchor pages</p>
+                      <p class="sidebar-label">Navigation</p>
+                      <h3 class="admin-side-title">Bereiche und Werkzeuge</h3>
                     </div>
-                    <nav class="admin-nav" aria-label="Unterseiten">
-                      <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="participants_list" aria-controls="participants_list" title="Zeigt die Liste aller angemeldeten Teilnehmer">Teilnehmerliste</button>
-                      <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="profile" aria-controls="profile" title="Bearbeitet Ihr eigenes Profil (Name, Rolle, Passwort)">Mein Profil bearbeiten</button>
-                      <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="settings" aria-controls="settings" title="Öffnet die Systemeinstellungen (Design, Sprache, Reset)">Einstellungen</button>
-                      <?php if ($can_create_participant): ?>
-                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="participants_create" aria-controls="participants_create" title="Legt einen neuen Teilnehmer an">Teilnehmer anlegen</button>
-                      <?php endif; ?>
-                      <?php if ($can_manage_users): ?>
-                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="users" aria-controls="users" title="Verwaltet Benutzerkonten und Zugriffstokens">Nutzerverwaltung</button>
-                      <?php endif; ?>
-                      <?php if ($can_manage_teams): ?>
-                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="teams_manage" aria-controls="teams_manage" title="Verwaltet Teams und Teamzuordnungen">Teams</button>
-                      <?php endif; ?>
-                      <?php if ($can_admin_pages): ?>
-                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="audit" aria-controls="audit" title="Zeigt das Ereignisprotokoll aller Aktionen">Ereignisprotokoll</button>
-                      <?php endif; ?>
-                    </nav>
-                  </section>
 
-                  <section class="admin-side-group">
-                    <div class="admin-side-group-head">
-                      <p class="sidebar-label">In neuem Tab &ouml;ffnen:</p>
+                    <div class="admin-side-subgroup">
+                      <p class="sidebar-label">Im Panel</p>
+                      <nav class="admin-nav" aria-label="Unterseiten">
+                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="participants_list" aria-controls="participants_list" title="Zeigt die Liste aller angemeldeten Teilnehmer">Teilnehmerliste</button>
+                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="profile" aria-controls="profile" title="Bearbeitet Ihr eigenes Profil (Name, Rolle, Passwort)">Mein Profil bearbeiten</button>
+                        <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="settings" aria-controls="settings" title="Öffnet die Systemeinstellungen (Design, Sprache, Reset)">Einstellungen</button>
+                        <?php if ($can_create_participant): ?>
+                          <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="participants_create" aria-controls="participants_create" title="Legt einen neuen Teilnehmer an">Teilnehmer anlegen</button>
+                        <?php endif; ?>
+                        <?php if ($can_manage_users): ?>
+                          <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="users" aria-controls="users" title="Verwaltet Benutzerkonten und Zugriffstokens">Nutzerverwaltung</button>
+                        <?php endif; ?>
+                        <?php if ($can_manage_teams): ?>
+                          <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="teams_manage" aria-controls="teams_manage" title="Verwaltet Teams und Teamzuordnungen">Teams</button>
+                        <?php endif; ?>
+                        <?php if ($can_admin_pages): ?>
+                          <button type="button" class="btn btn-secondary admin-nav-btn" data-admin-target="audit" aria-controls="audit" title="Zeigt das Ereignisprotokoll aller Aktionen">Ereignisprotokoll</button>
+                        <?php endif; ?>
+                      </nav>
                     </div>
-                    <div class="admin-links-grid">
-                      <?php if ($can_dashboard_page): ?>
-                        <a class="btn btn-secondary admin-link-btn" href="dashboard/dashboard.php" target="_blank" rel="noopener noreferrer" data-admin-frame-url="dashboard/dashboard.php" data-admin-frame-title="Dashboard">Dashboard</a>
-                        <a class="btn btn-secondary admin-link-btn" href="eventlifkiosk.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="eventlifkiosk.php" data-admin-frame-title="Event Live Kiosk">Event Kiosk</a>
-                      <?php endif; ?>
-                      <?php if ($can_numbers_page): ?>
-                        <a class="btn btn-secondary admin-link-btn" href="numbers.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="numbers.php" data-admin-frame-title="Startnummern">Startnummern</a>
-                      <?php endif; ?>
-                      <?php if ($can_manage_timeframes): ?>
-                        <a class="btn btn-secondary admin-link-btn" href="timeframes.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="timeframes.php" data-admin-frame-title="Zeitfenster">Zeitfenster</a>
-                      <?php endif; ?>
-                      <?php if ($can_export_participants): ?>
-                        <a class="btn btn-secondary admin-link-btn" href="export.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="export.php" data-admin-frame-title="Datenexport">Datenexport</a>
-                      <?php endif; ?>
-                      <?php if ($can_edit_participants): ?>
-                        <a class="btn btn-secondary admin-link-btn" href="sync.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="sync.php" data-admin-frame-title="Teilnehmer-Sync">Teilnehmer-Sync</a>
-                      <?php endif; ?>
+
+                    <div class="admin-side-subgroup">
+                      <p class="sidebar-label">In neuem Tab</p>
+                      <div class="admin-links-grid">
+                        <?php if ($can_dashboard_page): ?>
+                          <a class="btn btn-secondary admin-link-btn" href="dashboard/dashboard.php" target="_blank" rel="noopener noreferrer" data-admin-frame-url="dashboard/dashboard.php" data-admin-frame-title="Dashboard">Dashboard</a>
+                          <a class="btn btn-secondary admin-link-btn" href="eventlifkiosk.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="eventlifkiosk.php" data-admin-frame-title="Event Live Kiosk">Event Kiosk</a>
+                        <?php endif; ?>
+                        <?php if ($can_numbers_page): ?>
+                          <a class="btn btn-secondary admin-link-btn" href="numbers.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="numbers.php" data-admin-frame-title="Startnummern">Startnummern</a>
+                        <?php endif; ?>
+                        <?php if ($can_manage_timeframes): ?>
+                          <a class="btn btn-secondary admin-link-btn" href="timeframes.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="timeframes.php" data-admin-frame-title="Zeitfenster">Zeitfenster</a>
+                        <?php endif; ?>
+                        <?php if ($can_export_participants): ?>
+                          <a class="btn btn-secondary admin-link-btn" href="export.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="export.php" data-admin-frame-title="Datenexport">Datenexport</a>
+                        <?php endif; ?>
+                        <?php if ($can_edit_participants): ?>
+                          <a class="btn btn-secondary admin-link-btn" href="sync.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="sync.php" data-admin-frame-title="Teilnehmer-Sync">Teilnehmer-Sync</a>
+                        <?php endif; ?>
+                      </div>
                     </div>
                   </section>
 
@@ -2896,42 +2972,6 @@ if ($can_manage_users) {
 
                   <section class="admin-side-group">
                     <div class="admin-side-group-head">
-                      <p class="sidebar-label">Sitzung</p>
-                      <h3 class="admin-side-title">Konto und Anzeige</h3>
-                    </div>
-                    <?php // @doc-note Die Sitzungskarte fasst Nutzerstatus und Schnellaktionen im gleichen Raster wie die restliche Sidebar zusammen. ?>
-                    <div class="hint admin-session-info">
-                      <div class="admin-session-main">
-                        <div class="admin-session-meta">
-                          <span class="admin-session-kicker">Sitzung aktiv</span>
-                          <strong class="admin-session-title">Konto und Anzeige</strong>
-                        </div>
-                        <span class="admin-session-avatar" aria-hidden="true">&#128100;</span>
-                      </div>
-                      <div class="admin-session-facts">
-                        <div class="admin-session-fact">
-                          <span class="admin-session-fact-label">Angemeldet als</span>
-                          <span class="admin-session-fact-value"><?php echo escape((string)($_SESSION['username'] ?? ($current_user['username'] ?? ''))); ?></span>
-                        </div>
-                        <div class="admin-session-fact">
-                          <span class="admin-session-fact-label">Rolle</span>
-                          <span class="admin-session-badge">
-                            <span class="admin-session-badge-icon" aria-hidden="true">&#128274;</span>
-                            <span><?php echo escape($role); ?></span>
-                          </span>
-                        </div>
-                      </div>
-                      <?php if ($setup_mode): ?>
-                        <div class="admin-session-note is-warn">
-                          <span class="admin-session-badge-icon" aria-hidden="true">&#9888;</span>
-                          <span>Setup-Modus aktiv</span>
-                        </div>
-                      <?php elseif ($users_enabled && $allow_setup_password): ?>
-                        <div class="admin-session-note is-warn">
-                          <span class="admin-session-badge-icon" aria-hidden="true">&#9888;</span>
-                          <span>Recovery-Modus aktiv</span>
-                        </div>
-                      <?php endif; ?>
                     </div>
                     <div class="admin-session-actions">
                       <button type="button" class="btn btn-secondary" id="theme_toggle" aria-pressed="false">
@@ -3116,6 +3156,44 @@ if ($can_manage_users) {
 
           <div id="settings" class="panel admin-section admin-anchor-target" data-admin-section-title="Einstellungen" style="margin-bottom:12px;" hidden>
             <h2 style="margin:0 0 10px 0;">Einstellungen</h2>
+
+            <div class="panel admin-anchor-target" id="settings_profile" data-admin-anchor-label="Mein Profil bearbeiten" style="margin-top:12px;">
+              <h3 style="margin:0 0 10px 0;">Mein Profil bearbeiten</h3>
+              <?php if ($profile_error !== ''): ?>
+                <div class="alert alert-error"><strong>Fehler:</strong> <?php echo escape($profile_error); ?></div>
+              <?php endif; ?>
+              <?php if ($profile_success !== ''): ?>
+                <div class="alert alert-success"><strong>Erfolg:</strong> <?php echo escape($profile_success); ?></div>
+              <?php endif; ?>
+              <p class="muted" style="margin:0 0 10px 0;">Ändern Sie Ihren Benutzernamen und bei entsprechender Berechtigung auch Ihre Rolle.</p>
+              <form class="reg-form" method="post" action="admin.php#settings" style="margin-top:12px;">
+                <input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>" />
+                <input type="hidden" name="profile_action" value="update_profile" />
+                <div class="grid">
+                  <div class="field">
+                    <label for="settings_profile_username">Benutzername</label>
+                    <input id="settings_profile_username" name="profile_username" type="text" value="<?php echo escape((string)($_SESSION['username'] ?? ($current_user['username'] ?? ''))); ?>" required />
+                  </div>
+                  <div class="field">
+                    <label for="settings_profile_role">Rolle</label>
+                    <?php if ($can_manage_users): ?>
+                      <select id="settings_profile_role" name="profile_role">
+                        <option value="admin" <?php echo $role === 'admin' ? 'selected' : ''; ?>>Admin</option>
+                        <option value="cashier" <?php echo $role === 'cashier' ? 'selected' : ''; ?>>Kasse</option>
+                        <option value="orga" <?php echo $role === 'orga' ? 'selected' : ''; ?>>Orga/Bahn</option>
+                        <option value="viewer" <?php echo $role === 'viewer' ? 'selected' : ''; ?>>Nur Lesen</option>
+                      </select>
+                    <?php else: ?>
+                      <input type="text" value="<?php echo escape($role); ?>" disabled />
+                      <input type="hidden" name="profile_role" value="<?php echo escape($role); ?>" />
+                    <?php endif; ?>
+                  </div>
+                </div>
+                <div class="actions">
+                  <button class="btn btn-primary" type="submit" title="Speichert die Änderungen an Benutzername und Rolle">Profil speichern</button>
+                </div>
+              </form>
+            </div>
 
             <div class="panel admin-anchor-target" id="settings_design" data-admin-anchor-label="Design" style="margin-top:12px;">
               <h3 style="margin:0 0 10px 0;">Design</h3>
@@ -3875,6 +3953,15 @@ if ($can_manage_users) {
             </div>
           </div>
         <?php endif; ?>
+
+        <footer class="site-footer">
+          <picture>
+            <source type="image/webp" srcset="<?php echo escape($assetBase . '/assets/check_deck_logo.webp'); ?> 1600w" sizes="200px" />
+            <img src="<?php echo escape($assetBase . '/assets/check_deck_logo.jpg'); ?>" alt="Check Deck – Dein Eventmanager" class="site-footer-logo" width="1600" height="893" decoding="async" />
+          </picture>
+          <p>24‑Stunden‑Schwimmen – DLRG Ortsgruppe St. Augustin e.V.</p>
+          <p><a class="link-btn" href="impressum.php">Impressum</a></p>
+        </footer>
       </div>
     </div>
     <script charset="utf-8" src="<?php echo escape($assetBase . '/assets/app.js'); ?>?v=<?php echo escape(app_asset_version('assets/app.js')); ?>"></script>
@@ -4008,30 +4095,58 @@ if ($can_manage_users) {
             window.scrollTo({ top: shellTop, behavior: 'auto' });
           });
         };
+
+        // @doc-section viewframe-scroll-top
+        // @doc-purpose Positioniert den Viewframe (Inhaltsbereich) nach jedem Laden und Navigationsschritt exakt am oberen Viewport-Rand. Sticky-Logo-Höhe wird berücksichtigt.
+        const scrollViewframeToTop = (smooth) => {
+          const frame = document.getElementById('admin_content_scroll');
+          if (!frame) {
+            return;
+          }
+          const logoBar = document.querySelector('.app-logo-bar');
+          const logoBarHeight = logoBar ? logoBar.offsetHeight : 0;
+          // Der Inhalt scrollt innerhalb von #admin_content_scroll (overflow-y: auto), nicht über window.
+          frame.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+          // Falls die Seite insgesamt scrollbar ist, Logo-Höhe als Offset berücksichtigen.
+          const frameTop = Math.max(0, Math.round(frame.getBoundingClientRect().top + window.scrollY - logoBarHeight));
+          if (document.documentElement.scrollHeight > window.innerHeight) {
+            window.requestAnimationFrame(() => {
+              window.scrollTo({ top: frameTop, behavior: smooth ? 'smooth' : 'auto' });
+            });
+          }
+          // Iframe-Inhalt ebenfalls nach oben scrollen.
+          const iframe = document.getElementById('admin_content_iframe');
+          if (iframe && iframe.contentWindow) {
+            try {
+              iframe.contentWindow.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+            } catch (e) {}
+          }
+        };
+        const shellBreakpoint = adminShell ? parseInt(adminShell.getAttribute('data-admin-shell-breakpoint') || '1280', 10) || 1280 : 1280;
+        const desktopQuery = typeof window.matchMedia === 'function' ? window.matchMedia(`(min-width: ${shellBreakpoint}px)`) : null;
+        const mobileQuery = typeof window.matchMedia === 'function' ? window.matchMedia(`(max-width: ${Math.max(0, shellBreakpoint - 1)}px)`) : null;
+
+        const setAdminMobileMenuOpen = (open) => {
+          if (!adminShell || !adminSidebar || !adminMobileMenuToggle || !mobileQuery) {
+            return;
+          }
+          const nextOpen = mobileQuery.matches && open;
+          adminShell.classList.toggle('is-mobile-menu-open', nextOpen);
+          adminMobileMenuToggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
+          if (adminMobileMenuToggleLabel) {
+            adminMobileMenuToggleLabel.textContent = nextOpen ? 'Admin-Menue schliessen' : 'Admin-Menue oeffnen';
+          }
+          adminMobileMenuToggle.setAttribute('aria-label', nextOpen ? 'Admin-Menue schliessen' : 'Admin-Menue oeffnen');
+          adminSidebar.hidden = mobileQuery.matches ? !nextOpen : false;
+        };
+
         if (adminShell && adminShellResizer && typeof window.matchMedia === 'function') {
-          const shellBreakpoint = parseInt(adminShell.getAttribute('data-admin-shell-breakpoint') || '1280', 10) || 1280;
-          const desktopQuery = window.matchMedia(`(min-width: ${shellBreakpoint}px)`);
-          const mobileQuery = window.matchMedia(`(max-width: ${Math.max(0, shellBreakpoint - 1)}px)`);
           const sidebarStorageKey = 'admin_sidebar_ratio_v1';
           const defaultSidebarWidth = 320;
           const minSidebarWidth = 260;
           const maxSidebarWidth = 520;
           const minMainWidth = 720;
           let resizeState = null;
-
-          const setAdminMobileMenuOpen = (open) => {
-            if (!adminShell || !adminSidebar || !adminMobileMenuToggle) {
-              return;
-            }
-            const nextOpen = mobileQuery.matches && open;
-            adminShell.classList.toggle('is-mobile-menu-open', nextOpen);
-            adminMobileMenuToggle.setAttribute('aria-expanded', nextOpen ? 'true' : 'false');
-            if (adminMobileMenuToggleLabel) {
-              adminMobileMenuToggleLabel.textContent = nextOpen ? 'Admin-Menue schliessen' : 'Admin-Menue oeffnen';
-            }
-            adminMobileMenuToggle.setAttribute('aria-label', nextOpen ? 'Admin-Menue schliessen' : 'Admin-Menue oeffnen');
-            adminSidebar.hidden = mobileQuery.matches ? !nextOpen : false;
-          };
 
           const getStoredSidebarRatio = () => {
             try {
@@ -4195,6 +4310,90 @@ if ($can_manage_users) {
           syncShellLayout();
         }
 
+        /* Responsive Button-Schriftgroesse: proportional zur Panel-Breite.
+         * Berechnet die Schriftgroesse anhand der Containerbreite und synchronisiert
+         * sie sowohl fuer die Inline-Bereiche als auch fuer den eingebetteten Frame. */
+        const adminBtnFontMin = 12;
+        const adminBtnFontMax = 17;
+        const adminBtnFontFactor = 0.026; /* Entspricht 2.6cqw in den Container-Queries. */
+        const adminBtnReferenceWidth = adminBtnFontMax / adminBtnFontFactor; /* ca. 654px */
+
+        const calcAdminBtnFontSize = (containerWidth) => {
+          const numericWidth = Number(containerWidth);
+          if (!Number.isFinite(numericWidth) || numericWidth <= 0) {
+            return adminBtnFontMax;
+          }
+          const raw = numericWidth * adminBtnFontFactor;
+          return Math.max(adminBtnFontMin, Math.min(adminBtnFontMax, raw));
+        };
+
+        const syncAdminBtnFontSize = () => {
+          const mainPanel = document.querySelector('.admin-page-main');
+          const sidebarPanel = document.querySelector('.admin-page-sidebar');
+          const iframe = document.getElementById('admin_content_iframe');
+
+          const setFontVar = (element, width) => {
+            if (!element) {
+              return;
+            }
+            const px = calcAdminBtnFontSize(width);
+            element.style.setProperty('--admin-btn-font-size', `${px}px`);
+          };
+
+          if (mainPanel) {
+            setFontVar(mainPanel, mainPanel.getBoundingClientRect().width);
+          }
+          if (sidebarPanel) {
+            setFontVar(sidebarPanel, sidebarPanel.getBoundingClientRect().width);
+          }
+
+          /* In den eingebetteten Frame synchronisieren (Container-Queries wirken
+           * nicht ueber Iframe-Grenzen hinweg). */
+          if (iframe && iframe.contentDocument && iframe.contentDocument.documentElement) {
+            const frameRoot = iframe.contentDocument.documentElement;
+            const frameWidth = iframe.getBoundingClientRect().width;
+            const px = calcAdminBtnFontSize(frameWidth);
+            frameRoot.style.setProperty('--admin-btn-font-size', `${px}px`);
+          }
+        };
+
+        let adminBtnFontRafId = null;
+        const scheduleAdminBtnFontSync = () => {
+          if (adminBtnFontRafId !== null) {
+            return;
+          }
+          adminBtnFontRafId = window.requestAnimationFrame(() => {
+            adminBtnFontRafId = null;
+            syncAdminBtnFontSize();
+          });
+        };
+
+        if (typeof ResizeObserver === 'function') {
+          const adminBtnFontObserver = new ResizeObserver(() => {
+            scheduleAdminBtnFontSync();
+          });
+          const mainPanel = document.querySelector('.admin-page-main');
+          const sidebarPanel = document.querySelector('.admin-page-sidebar');
+          if (mainPanel) {
+            adminBtnFontObserver.observe(mainPanel);
+          }
+          if (sidebarPanel) {
+            adminBtnFontObserver.observe(sidebarPanel);
+          }
+        }
+
+        window.addEventListener('resize', scheduleAdminBtnFontSync);
+        window.addEventListener('admin-theme-changed', scheduleAdminBtnFontSync);
+
+        /* Bei Drag des Shell-Resizers sofort (ohne Ruckler) aktualisieren. */
+        window.addEventListener('pointermove', () => {
+          if (document.body.classList.contains('admin-shell-resizing')) {
+            scheduleAdminBtnFontSync();
+          }
+        });
+
+        scheduleAdminBtnFontSync();
+
         const adminSections = Array.from(document.querySelectorAll('.admin-section'));
         const adminNavButtons = Array.from(document.querySelectorAll('.admin-nav-btn[data-admin-target]'));
         const adminFrameLinks = Array.from(document.querySelectorAll('.admin-link-btn[data-admin-frame-url]'));
@@ -4206,7 +4405,7 @@ if ($can_manage_users) {
         const adminInternalFrame = document.getElementById('admin_internal_frame');
         const adminContentIframe = document.getElementById('admin_content_iframe');
 
-        if (adminSections.length > 0 && adminNavButtons.length > 0 && adminAnchorNav && adminAnchorEmpty && adminAnchorCopy && adminActionTickerText && adminContentScroll && adminInternalFrame && adminContentIframe) {
+        if (adminSections.length > 0 && adminNavButtons.length > 0 && adminActionTickerText && adminContentScroll && adminInternalFrame && adminContentIframe) {
           const defaultAdminSectionId = adminNavButtons[0].getAttribute('data-admin-target') || adminSections[0].id;
           let activeAdminSectionId = '';
           const adminTickerEntries = [];
@@ -4329,6 +4528,14 @@ if ($can_manage_users) {
                 }
               }
 
+              /* Responsive Button-Schriftgroesse in den Frame uebernehmen. */
+              const mainPanel = document.querySelector('.admin-page-main');
+              if (mainPanel) {
+                const panelWidth = mainPanel.getBoundingClientRect().width;
+                const btnFontSize = calcAdminBtnFontSize(panelWidth);
+                frameRoot.style.setProperty('--admin-btn-font-size', `${btnFontSize}px`);
+              }
+
               const themeToggle = frameDoc.getElementById('theme_toggle');
               if (themeToggle) {
                 themeToggle.hidden = true;
@@ -4357,6 +4564,16 @@ html[data-admin-embedded-frame="true"] .page {
 }
 html[data-admin-embedded-frame="true"] .admin-page-shell {
   width: 100% !important;
+}
+html[data-admin-embedded-frame="true"] .btn,
+html[data-admin-embedded-frame="true"] .admin-link-btn,
+html[data-admin-embedded-frame="true"] .admin-nav-btn,
+html[data-admin-embedded-frame="true"] .admin-anchor-btn,
+html[data-admin-embedded-frame="true"] .link-btn,
+html[data-admin-embedded-frame="true"] .icon-btn,
+html[data-admin-embedded-frame="true"] .modal-close {
+  font-size: var(--admin-btn-font-size, 17px) !important;
+  transition: font-size 140ms ease;
 }
 html[data-admin-embedded-frame="true"] .container {
   max-width: none !important;
@@ -4486,7 +4703,17 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
           };
 
           adminContentIframe.addEventListener('load', syncEmbeddedAdminFrame);
+          // @doc-note Iframe-Inhalt nach jedem Laden an den oberen Rand des Viewframes setzen.
+          adminContentIframe.addEventListener('load', () => {
+            try {
+              if (adminContentIframe.contentWindow) {
+                adminContentIframe.contentWindow.scrollTo({ top: 0, behavior: 'auto' });
+              }
+            } catch (e) {}
+            scrollViewframeToTop(false);
+          });
           window.addEventListener('admin-theme-changed', syncEmbeddedAdminFrame);
+          syncEmbeddedAdminFrame();
 
           const scrollAdminTargetIntoView = (targetId, smooth) => {
             if (!targetId) {
@@ -4502,6 +4729,9 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
           };
 
           const setActiveAnchorState = (targetId) => {
+            if (!adminAnchorNav) {
+              return;
+            }
             Array.from(adminAnchorNav.querySelectorAll('.admin-anchor-btn')).forEach((button) => {
               const isActive = button.getAttribute('data-admin-anchor-id') === targetId;
               button.classList.toggle('is-active-anchor', isActive);
@@ -4510,6 +4740,9 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
           };
 
           const renderAdminAnchors = (section, activeTargetId) => {
+            if (!adminAnchorNav || !adminAnchorEmpty || !adminAnchorCopy) {
+              return;
+            }
             adminAnchorNav.replaceChildren();
             const anchors = getSectionAnchors(section);
 
@@ -4600,9 +4833,15 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
             if (tableControlsSub) {
               tableControlsSub.hidden = true;
             }
-            adminAnchorNav.replaceChildren();
-            adminAnchorEmpty.hidden = false;
-            adminAnchorCopy.textContent = 'Diese Unterseite wird direkt im rechten Frame geladen. Interne Sprungmarken stehen hier nicht zentral zur Verfuegung.';
+            if (adminAnchorNav) {
+              adminAnchorNav.replaceChildren();
+            }
+            if (adminAnchorEmpty) {
+              adminAnchorEmpty.hidden = false;
+            }
+            if (adminAnchorCopy) {
+              adminAnchorCopy.textContent = 'Diese Unterseite wird direkt im rechten Frame geladen. Interne Sprungmarken stehen hier nicht zentral zur Verfuegung.';
+            }
             pushAdminTicker(`Unterseite geladen: ${title || 'Unterseite'}`);
             adminInternalFrame.hidden = true;
             adminContentScroll.hidden = true;
@@ -4634,22 +4873,26 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
             button.addEventListener('click', () => {
               const targetId = button.getAttribute('data-admin-target') || defaultAdminSectionId;
               activateAdminSection(targetId, { updateHash: true, scroll: true });
+              scrollViewframeToTop(true);
               setAdminMobileMenuOpen(false);
             });
           });
 
-          adminAnchorNav.addEventListener('click', (event) => {
-            const button = event.target.closest('.admin-anchor-btn[data-admin-anchor-id]');
-            if (!button || !activeAdminSectionId) {
-              return;
-            }
-            const anchorId = button.getAttribute('data-admin-anchor-id') || activeAdminSectionId;
-            activateAdminSection(activeAdminSectionId, { anchorId, updateHash: true, scroll: true, smooth: true });
-          });
+          if (adminAnchorNav) {
+            adminAnchorNav.addEventListener('click', (event) => {
+              const button = event.target.closest('.admin-anchor-btn[data-admin-anchor-id]');
+              if (!button || !activeAdminSectionId) {
+                return;
+              }
+              const anchorId = button.getAttribute('data-admin-anchor-id') || activeAdminSectionId;
+              activateAdminSection(activeAdminSectionId, { anchorId, updateHash: true, scroll: true, smooth: true });
+              scrollViewframeToTop(true);
+            });
+          }
 
           adminFrameLinks.forEach((link) => {
             link.addEventListener('click', (event) => {
-              if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target === '_blank') {
+              if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
                 return;
               }
               event.preventDefault();
@@ -4657,6 +4900,7 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
                 String(link.getAttribute('data-admin-frame-url') || link.getAttribute('href') || ''),
                 String(link.getAttribute('data-admin-frame-title') || link.textContent || 'Unterseite').trim()
               );
+              scrollViewframeToTop(true);
               setAdminMobileMenuOpen(false);
             });
           });
@@ -4664,11 +4908,28 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
           window.addEventListener('hashchange', () => {
             const nextView = resolveInitialAdminView();
             activateAdminSection(nextView.sectionId, { anchorId: nextView.anchorId, updateHash: false, scroll: true });
+            scrollViewframeToTop(true);
           });
 
           const initialAdminView = resolveInitialAdminView();
           activateAdminSection(initialAdminView.sectionId, { anchorId: initialAdminView.anchorId, updateHash: false, scroll: false });
           scrollAdminShellIntoView();
+          scrollViewframeToTop(false);
+
+          // @doc-note MutationObserver kalibriert die Scroll-Position bei dynamischen Inhaltsaenderungen im Viewframe neu.
+          if (typeof MutationObserver === 'function' && adminInternalFrame) {
+            let viewframeObserverTimer = null;
+            const viewframeObserver = new MutationObserver(() => {
+              if (viewframeObserverTimer !== null) {
+                clearTimeout(viewframeObserverTimer);
+              }
+              viewframeObserverTimer = setTimeout(() => {
+                viewframeObserverTimer = null;
+                scrollViewframeToTop(false);
+              }, 120);
+            });
+            viewframeObserver.observe(adminInternalFrame, { childList: true, subtree: true, characterData: false });
+          }
         }
 
         const setupResizableTable = (table, options = {}) => {
