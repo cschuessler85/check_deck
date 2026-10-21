@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 """
 @doc-file
-@doc-id live_web.analyze_event_sqlite
+@doc-id live_app.scripts.analyze_event_sqlite
 @doc-kind cli-script
 @doc-purpose Analysiert die SQLite-Datenbank eines 24h-Schwimmens und erzeugt umfassende Event-Statistiken.
 @doc-entry CLI-Aufruf durch Entwickler oder Betrieb.
 @doc-input SQLite-Datei mit Tabellen `schwimmer` und `actions`.
 @doc-output Menschlich lesbare Zusammenfassung oder JSON-Report.
 @doc-side-effects Liest die Datenbank nur lesend.
+@doc-note Liegt im privaten Anwendungsordner, damit der Python-Quelltext nicht ueber das Webroot abrufbar ist.
 """
 
 from __future__ import annotations
@@ -24,7 +25,8 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 
 POOL_LENGTH_METERS = 100
-DEFAULT_DB_PATH = Path(__file__).resolve().parents[1] / "data.sqlite"
+# @doc-note Der Pfad wird relativ zum Projektwurzelverzeichnis aufgeloest (live_app/scripts/ -> Projektwurzel).
+DEFAULT_DB_PATH = Path(__file__).resolve().parents[2] / "data.sqlite"
 LAP_COMMANDS = {"ADD"}
 
 

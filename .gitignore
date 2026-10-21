@@ -42,6 +42,9 @@ supply_mask/go/schwimmer-final.csv
 live_app/storage/sessions/
 live_app/storage/backups/*.sql
 live_app/storage/logs/*.log
+# Laufzeitartefakte der Schema-Migration (Marker- und Lock-Datei)
+live_app/storage/.schema_v2.migrated
+live_app/storage/.schema_v2.lock
 *.log
 
 # --- SQL-Dumps ---

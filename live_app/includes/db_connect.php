@@ -3,16 +3,30 @@
  * @doc-file
  * @doc-id live_app.includes.db_connect
  * @doc-kind bootstrap
- * @doc-purpose Initialisiert Umgebung, Session, Datenbankverbindung, Audit-Kontext und notwendige Auto-Migrationen.
- * @doc-entry Wird von privaten PHP-Seiten frueh eingebunden.
- * @doc-input Umgebungswerte, Session, PDO und Datenbankschema.
+ * @doc-purpose Initialisiert Umgebung, Session, Datenbankverbindung und Audit-Kontext und ist die einzige
+ *             Quelle fuer die Session-Bootstrap-Hilfsfunktionen des Projekts.
+ * @doc-entry Wird von privaten PHP-Seiten und CLI-Skripten frueh eingebunden.
+ * @doc-input Umgebungswerte und Session sowie, im Erstfall, den Migrationsaufruf aus scripts/migrate.php.
  * @doc-output Verfuegbare PDO-Verbindung und initialisierte Laufzeitumgebung.
- * @doc-side-effects Startet Session, setzt PHP-Fehlerverhalten, verbindet DB und fuehrt DDL aus.
+ * @doc-side-effects Startet die Session, setzt das PHP-Fehlerverhalten, verbindet die Datenbank, setzt die
+ *                  Audit-Session-Variablen und stoesst einmalig die Schema-Migration an.
+ * @doc-note Seit der Entkopplung der Migrationen fuehrt diese Datei kein DDL mehr im Requestpfad aus.
+ *           Solange storage/.schema_v2.migrated fehlt, wird scripts/migrate.php genau einmal eingebunden.
+ * @doc-note Mit dem Konstanten-Schalter APP_MIGRATION_AUTORUN_DISABLED kann der automatische
+ *           Migrationslauf unterdrueckt werden, etwa beim direkten CLI-Aufruf von migrate.php.
  */
 if (!defined('APP_ROOT')) {
     define('APP_ROOT', dirname(__DIR__));
 }
 
+// @doc-section session-bootstrap
+// @doc-purpose Kapselt Ermittlung des Session-Speicherpfads, Verzeichnisanlage und Session-Start.
+
+/**
+ * @doc-function live_app.includes.db_connect.app_session_configured_path
+ * @doc-purpose Liest den in der PHP-Konfiguration hinterlegten Session-Speicherpfad aus.
+ * @doc-return string|null Nutzbarer Pfad aus der PHP-Konfiguration oder null, wenn keiner gesetzt ist.
+ */
 if (!function_exists('app_session_configured_path')) {
     function app_session_configured_path(): ?string
     {
@@ -31,6 +45,12 @@ if (!function_exists('app_session_configured_path')) {
     }
 }
 
+/**
+ * @doc-function live_app.includes.db_connect.app_session_ensure_storage_dir
+ * @doc-purpose Stellt sicher, dass das angegebene Session-Verzeichnis existiert und beschreibbar ist.
+ * @doc-param string $path Gewuenschter Verzeichnispfad.
+ * @doc-return string|null Verzeichnispfad bei Erfolg, sonst null.
+ */
 if (!function_exists('app_session_ensure_storage_dir')) {
     function app_session_ensure_storage_dir(string $path): ?string
     {
@@ -51,8 +71,14 @@ if (!function_exists('app_session_ensure_storage_dir')) {
     }
 }
 
+/**
+ * @doc-function live_app.includes.db_connect.app_session_bootstrap_path
+ * @doc-purpose Ermittelt einen beschreibbaren Session-Speicherpfad mit kontrollierten Ausweichzielen.
+ * @doc-return string|null Nutzbarer Session-Pfad oder null im CLI-Betrieb.
+ * @doc-note Webzugriffe weichen bei fehlerhaftem PHP-Sessionpfad bewusst auf storage/sessions und
+ *           anschliessend auf das System-Temp-Verzeichnis aus.
+ */
 if (!function_exists('app_session_bootstrap_path')) {
-    // @doc-note Webzugriffe weichen bei fehlerhaftem PHP-Sessionpfad kontrolliert auf den lokalen App-Speicher aus.
     function app_session_bootstrap_path(): ?string
     {
         if (PHP_SAPI === 'cli') {
@@ -76,15 +102,14 @@ if (!function_exists('app_session_bootstrap_path')) {
     }
 }
 
-ini_set('default_charset', 'UTF-8');
-if (function_exists('mb_internal_encoding')) {
-    mb_internal_encoding('UTF-8');
-}
-
-if (!isset($_ENV) || !is_array($_ENV)) {
-    $_ENV = [];
-}
-
+/**
+ * @doc-function live_app.includes.db_connect.safe_substr
+ * @doc-purpose Kuerzt eine Zeichenkette multibyte-sicher und faellt auf substr zurueck.
+ * @doc-param mixed $value Ausgangswert, wird in einen String umgewandelt.
+ * @doc-param int $start Startposition.
+ * @doc-param int|null $length Optionale Laenge.
+ * @doc-return string Gekuerzte Zeichenkette.
+ */
 if (!function_exists('safe_substr')) {
     function safe_substr($value, $start, $length = null)
     {
@@ -96,6 +121,15 @@ if (!function_exists('safe_substr')) {
         }
         return $length === null ? substr($value, $start) : substr($value, $start, $length);
     }
+}
+
+ini_set('default_charset', 'UTF-8');
+if (function_exists('mb_internal_encoding')) {
+    mb_internal_encoding('UTF-8');
+}
+
+if (!isset($_ENV) || !is_array($_ENV)) {
+    $_ENV = [];
 }
 
 if (PHP_SAPI !== 'cli' && session_status() !== PHP_SESSION_ACTIVE) {
@@ -119,6 +153,12 @@ if (PHP_SAPI !== 'cli' && session_status() !== PHP_SESSION_ACTIVE) {
         ]);
     }
     session_start();
+}
+
+// @doc-note Im CLI-Betrieb existiert bewusst keine persistente Session; ein leeres Array haelt den Zugriff
+//           fuer Skripte dennoch fehlerfrei, die $_SESSION direkt adressieren.
+if (PHP_SAPI === 'cli' && (!isset($_SESSION) || !is_array($_SESSION))) {
+    $_SESSION = [];
 }
 
 // @doc-section env-loading
@@ -375,518 +415,19 @@ try {
 } catch (Throwable $e) {
 }
 
-// @doc-section auto-migrations
-// @doc-purpose Stellt benoetigte Tabellen, Spalten, Fremdschluessel und Trigger fuer Laufzeit und Auditierung sicher.
-try {
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS startnummern (
-            nummer INT PRIMARY KEY,
-            status ENUM('frei', 'reserviert', 'vergeben') NOT NULL DEFAULT 'frei',
-            reserviert_fuer VARCHAR(150) DEFAULT NULL,
-            team_id INT DEFAULT NULL,
-            teilnehmer_id INT DEFAULT NULL,
-            KEY idx_status (status),
-            KEY idx_team_id (team_id),
-            KEY idx_teilnehmer_id (teilnehmer_id),
-            FOREIGN KEY (teilnehmer_id) REFERENCES teilnehmer(id) ON DELETE SET NULL
-        ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    ");
-
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS users (
-            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(60) NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            role ENUM('admin','cashier','orga','viewer') NOT NULL DEFAULT 'viewer',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uniq_username (username)
-        ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    ");
-
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS lane_timeframes (
-            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(100) NOT NULL,
-            start_at DATETIME NOT NULL,
-            end_at DATETIME NOT NULL,
-            active TINYINT(1) NOT NULL DEFAULT 1,
-            sort_order INT NOT NULL DEFAULT 0,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            KEY idx_lane_timeframes_active_sort (active, sort_order, start_at, end_at),
-            KEY idx_lane_timeframes_start_end (start_at, end_at)
-        ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    ");
-
-    $stmt = $pdo->query("SHOW COLUMNS FROM teilnehmer LIKE 'startnummer'");
-    if ($stmt->rowCount() === 0) {
-        $pdo->exec("ALTER TABLE teilnehmer ADD COLUMN startnummer INT DEFAULT NULL");
-        $pdo->exec("ALTER TABLE teilnehmer ADD INDEX idx_teilnehmer_startnummer (startnummer)");
+// @doc-section schema-migration
+// @doc-purpose Prueft per Marker-Datei, ob das Schema bereits initialisiert wurde, und stoesst andernfalls
+//             genau einmal das entkoppelte Migrationsmodul scripts/migrate.php an.
+// @doc-note Der normale Requestpfad fuehrt kein DDL aus; sobald storage/.schema_v2.migrated existiert,
+//           entfaellt jede weitere Pruefung und es wird ausschliesslich die Dateiexistenz geprueft.
+// @doc-note Die Parallelitaetssicherung (Advisory File-Lock) sowie das Schreiben der Marker-Datei liegen
+//           vollstaendig in app_migration_maybe_run() aus scripts/migrate.php.
+// @doc-note Ist APP_MIGRATION_AUTORUN_DISABLED definiert, wird der automatische Lauf unterdrueckt, damit
+//           der direkte CLI-Aufruf von scripts/migrate.php die Ausfuehrung allein steuert.
+$appMigrationMarker = APP_ROOT . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . '.schema_v2.migrated';
+if (!defined('APP_MIGRATION_AUTORUN_DISABLED') && !is_file($appMigrationMarker)) {
+    require_once APP_ROOT . '/scripts/migrate.php';
+    if (function_exists('app_migration_maybe_run')) {
+        app_migration_maybe_run($pdo, ['source' => 'web']);
     }
-
-    $stmt = $pdo->query("SELECT COUNT(*) FROM startnummern");
-    if ($stmt->fetchColumn() == 0) {
-        $pdo->beginTransaction();
-        $insertStmt = $pdo->prepare("INSERT INTO startnummern (nummer, status) VALUES (?, 'frei')");
-        for ($i = 1; $i <= 999; $i++) {
-            $insertStmt->execute([$i]);
-        }
-        $pdo->commit();
-    }
-
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS audit_log (
-            id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            occurred_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            table_name VARCHAR(64) NOT NULL,
-            action ENUM('INSERT','UPDATE','DELETE') NOT NULL,
-            row_pk VARCHAR(128) NOT NULL,
-            user_id INT NULL,
-            username VARCHAR(60) NULL,
-            role VARCHAR(20) NULL,
-            old_data LONGTEXT NULL,
-            new_data LONGTEXT NULL,
-            KEY idx_audit_table_time (table_name, occurred_at),
-            KEY idx_audit_user_time (user_id, occurred_at)
-        ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    ");
-
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS teams (
-            id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(150) NOT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE KEY uniq_team_name (name)
-        ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    ");
-
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM teilnehmer LIKE 'team_id'");
-        if ($stmt->rowCount() === 0) {
-            $pdo->exec("ALTER TABLE teilnehmer ADD COLUMN team_id INT DEFAULT NULL");
-            $pdo->exec("ALTER TABLE teilnehmer ADD INDEX idx_teilnehmer_team_id (team_id)");
-        }
-    } catch (Throwable $e) {
-    }
-
-    try {
-        $stmt = $pdo->query("SHOW COLUMNS FROM startnummern LIKE 'team_id'");
-        if ($stmt->rowCount() === 0) {
-            $pdo->exec("ALTER TABLE startnummern ADD COLUMN team_id INT DEFAULT NULL");
-            $pdo->exec("ALTER TABLE startnummern ADD INDEX idx_team_id (team_id)");
-        }
-    } catch (Throwable $e) {
-    }
-
-    try {
-        $pdo->exec("
-            INSERT INTO teams (name)
-            SELECT DISTINCT TRIM(teamname) AS name
-            FROM teilnehmer
-            WHERE teamname IS NOT NULL AND TRIM(teamname) <> ''
-            ON DUPLICATE KEY UPDATE name = name
-        ");
-    } catch (Throwable $e) {
-    }
-
-    try {
-        $pdo->exec("
-            INSERT INTO teams (name)
-            SELECT DISTINCT TRIM(reserviert_fuer) AS name
-            FROM startnummern
-            WHERE reserviert_fuer IS NOT NULL AND TRIM(reserviert_fuer) <> ''
-            ON DUPLICATE KEY UPDATE name = name
-        ");
-    } catch (Throwable $e) {
-    }
-
-    try {
-        $pdo->exec("
-            UPDATE teilnehmer t
-            INNER JOIN teams te ON te.name = TRIM(t.teamname)
-            SET t.team_id = te.id
-            WHERE t.team_id IS NULL AND t.teamname IS NOT NULL AND TRIM(t.teamname) <> ''
-        ");
-    } catch (Throwable $e) {
-    }
-
-    try {
-        $pdo->exec("
-            UPDATE startnummern s
-            INNER JOIN teams te ON te.name = TRIM(s.reserviert_fuer)
-            SET s.team_id = te.id
-            WHERE s.team_id IS NULL AND s.reserviert_fuer IS NOT NULL AND TRIM(s.reserviert_fuer) <> ''
-        ");
-    } catch (Throwable $e) {
-    }
-
-    try {
-        $pdo->exec("
-            UPDATE teilnehmer t
-            INNER JOIN teams te ON te.id = t.team_id
-            SET t.teamname = te.name
-            WHERE t.team_id IS NOT NULL AND t.team_id <> 0 AND (t.teamname IS NULL OR t.teamname = '' OR t.teamname <> te.name)
-        ");
-    } catch (Throwable $e) {
-    }
-
-    try {
-        $pdo->exec("
-            UPDATE startnummern s
-            INNER JOIN teams te ON te.id = s.team_id
-            SET s.reserviert_fuer = te.name
-            WHERE s.team_id IS NOT NULL AND s.team_id <> 0 AND s.status = 'reserviert' AND (s.reserviert_fuer IS NULL OR s.reserviert_fuer = '' OR s.reserviert_fuer <> te.name)
-        ");
-    } catch (Throwable $e) {
-    }
-
-    try {
-        $pdo->exec("ALTER TABLE teilnehmer ADD CONSTRAINT fk_teilnehmer_team_id FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL");
-    } catch (Throwable $e) {
-    }
-
-    try {
-        $pdo->exec("ALTER TABLE startnummern ADD CONSTRAINT fk_startnummern_team_id FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL");
-    } catch (Throwable $e) {
-    }
-
-    $tableExists = static function (PDO $pdo, string $table): bool {
-        try {
-            $stmt = $pdo->prepare('SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1');
-            $stmt->execute([$table]);
-            return (int)$stmt->fetchColumn() === 1;
-        } catch (Throwable $e) {
-            return false;
-        }
-    };
-
-    $columnExists = static function (PDO $pdo, string $table, string $column): bool {
-        try {
-            $stmt = $pdo->prepare('SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1');
-            $stmt->execute([$table, $column]);
-            return (int)$stmt->fetchColumn() === 1;
-        } catch (Throwable $e) {
-            return false;
-        }
-    };
-
-    $triggerExists = static function (PDO $pdo, string $triggerName): bool {
-        try {
-            $stmt = $pdo->prepare('SELECT 1 FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = DATABASE() AND TRIGGER_NAME = ? LIMIT 1');
-            $stmt->execute([$triggerName]);
-            return (int)$stmt->fetchColumn() === 1;
-        } catch (Throwable $e) {
-            return false;
-        }
-    };
-
-    $replaceTrigger = function (PDO $pdo, string $triggerName, string $sql) use ($triggerExists): void {
-        if ($triggerExists($pdo, $triggerName)) {
-            $pdo->exec('DROP TRIGGER IF EXISTS `' . str_replace('`', '``', $triggerName) . '`');
-        }
-        $pdo->exec($sql);
-    };
-
-    if ($tableExists($pdo, 'teilnehmer')) {
-        try {
-            if ($columnExists($pdo, 'teilnehmer', 'browser_agent')) {
-                $pdo->exec('ALTER TABLE teilnehmer DROP COLUMN browser_agent');
-            }
-            if ($columnExists($pdo, 'teilnehmer', 'ip_adresse')) {
-                $pdo->exec('ALTER TABLE teilnehmer DROP COLUMN ip_adresse');
-            }
-        } catch (Throwable $e) {
-        }
-    }
-
-    if ($tableExists($pdo, 'audit_log')) {
-        try {
-            if ($columnExists($pdo, 'audit_log', 'ip_hash')) {
-                $pdo->exec('ALTER TABLE audit_log DROP COLUMN ip_hash');
-            }
-            if ($columnExists($pdo, 'audit_log', 'ua_hash')) {
-                $pdo->exec('ALTER TABLE audit_log DROP COLUMN ua_hash');
-            }
-        } catch (Throwable $e) {
-        }
-    }
-
-    if ($tableExists($pdo, 'lane_timeframes')) {
-        try {
-            if (!$columnExists($pdo, 'lane_timeframes', 'active')) {
-                $pdo->exec('ALTER TABLE lane_timeframes ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1');
-            }
-            if (!$columnExists($pdo, 'lane_timeframes', 'sort_order')) {
-                $pdo->exec('ALTER TABLE lane_timeframes ADD COLUMN sort_order INT NOT NULL DEFAULT 0');
-            }
-            if (!$columnExists($pdo, 'lane_timeframes', 'created_at')) {
-                $pdo->exec('ALTER TABLE lane_timeframes ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP');
-            }
-            if (!$columnExists($pdo, 'lane_timeframes', 'updated_at')) {
-                $pdo->exec('ALTER TABLE lane_timeframes ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
-            }
-            $pdo->exec('CREATE INDEX idx_lane_timeframes_active_sort ON lane_timeframes (active, sort_order, start_at, end_at)');
-        } catch (Throwable $e) {
-        }
-        try {
-            $pdo->exec('CREATE INDEX idx_lane_timeframes_start_end ON lane_timeframes (start_at, end_at)');
-        } catch (Throwable $e) {
-        }
-    }
-
-    if ($tableExists($pdo, 'teilnehmer')) {
-        try {
-            $replaceTrigger(
-                $pdo,
-                'audit_teilnehmer_ai',
-                "CREATE TRIGGER audit_teilnehmer_ai AFTER INSERT ON teilnehmer FOR EACH ROW
-                INSERT INTO audit_log (table_name, action, row_pk, user_id, username, role, old_data, new_data)
-                VALUES (
-                    'teilnehmer',
-                    'INSERT',
-                    CAST(NEW.id AS CHAR(128)),
-                    @audit_user_id,
-                    @audit_username,
-                    @audit_role,
-                    NULL,
-                    JSON_OBJECT(
-                        'id', NEW.id,
-                        'code', NEW.code,
-                        'vorname', NEW.vorname,
-                        'nachname', NEW.nachname,
-                        'team_id', NEW.team_id,
-                        'teamname', NEW.teamname,
-                        'bezahlt', NEW.bezahlt,
-                        'bezahlt_am', NEW.bezahlt_am,
-                        'startnummer', NEW.startnummer
-                    )
-                );"
-            );
-
-            $replaceTrigger(
-                $pdo,
-                'audit_teilnehmer_au',
-                "CREATE TRIGGER audit_teilnehmer_au AFTER UPDATE ON teilnehmer FOR EACH ROW
-                INSERT INTO audit_log (table_name, action, row_pk, user_id, username, role, old_data, new_data)
-                VALUES (
-                    'teilnehmer',
-                    'UPDATE',
-                    CAST(NEW.id AS CHAR(128)),
-                    @audit_user_id,
-                    @audit_username,
-                    @audit_role,
-                    JSON_OBJECT(
-                        'id', OLD.id,
-                        'code', OLD.code,
-                        'vorname', OLD.vorname,
-                        'nachname', OLD.nachname,
-                        'team_id', OLD.team_id,
-                        'teamname', OLD.teamname,
-                        'bezahlt', OLD.bezahlt,
-                        'bezahlt_am', OLD.bezahlt_am,
-                        'startnummer', OLD.startnummer
-                    ),
-                    JSON_OBJECT(
-                        'id', NEW.id,
-                        'code', NEW.code,
-                        'vorname', NEW.vorname,
-                        'nachname', NEW.nachname,
-                        'team_id', NEW.team_id,
-                        'teamname', NEW.teamname,
-                        'bezahlt', NEW.bezahlt,
-                        'bezahlt_am', NEW.bezahlt_am,
-                        'startnummer', NEW.startnummer
-                    )
-                );"
-            );
-
-            $replaceTrigger(
-                $pdo,
-                'audit_teilnehmer_ad',
-                "CREATE TRIGGER audit_teilnehmer_ad AFTER DELETE ON teilnehmer FOR EACH ROW
-                INSERT INTO audit_log (table_name, action, row_pk, user_id, username, role, old_data, new_data)
-                VALUES (
-                    'teilnehmer',
-                    'DELETE',
-                    CAST(OLD.id AS CHAR(128)),
-                    @audit_user_id,
-                    @audit_username,
-                    @audit_role,
-                    JSON_OBJECT(
-                        'id', OLD.id,
-                        'code', OLD.code,
-                        'vorname', OLD.vorname,
-                        'nachname', OLD.nachname,
-                        'team_id', OLD.team_id,
-                        'teamname', OLD.teamname,
-                        'bezahlt', OLD.bezahlt,
-                        'bezahlt_am', OLD.bezahlt_am,
-                        'startnummer', OLD.startnummer
-                    ),
-                    NULL
-                );"
-            );
-        } catch (Throwable $e) {
-            error_log('Audit trigger creation failed (teilnehmer): ' . $e->getMessage());
-        }
-    }
-
-    if ($tableExists($pdo, 'startnummern')) {
-        try {
-            $replaceTrigger(
-                $pdo,
-                'audit_startnummern_ai',
-                "CREATE TRIGGER audit_startnummern_ai AFTER INSERT ON startnummern FOR EACH ROW
-                INSERT INTO audit_log (table_name, action, row_pk, user_id, username, role, old_data, new_data)
-                VALUES (
-                    'startnummern',
-                    'INSERT',
-                    CAST(NEW.nummer AS CHAR(128)),
-                    @audit_user_id,
-                    @audit_username,
-                    @audit_role,
-                    NULL,
-                    JSON_OBJECT(
-                        'nummer', NEW.nummer,
-                        'status', NEW.status,
-                        'reserviert_fuer', NEW.reserviert_fuer,
-                        'team_id', NEW.team_id,
-                        'teilnehmer_id', NEW.teilnehmer_id
-                    )
-                );"
-            );
-
-            $replaceTrigger(
-                $pdo,
-                'audit_startnummern_au',
-                "CREATE TRIGGER audit_startnummern_au AFTER UPDATE ON startnummern FOR EACH ROW
-                INSERT INTO audit_log (table_name, action, row_pk, user_id, username, role, old_data, new_data)
-                VALUES (
-                    'startnummern',
-                    'UPDATE',
-                    CAST(NEW.nummer AS CHAR(128)),
-                    @audit_user_id,
-                    @audit_username,
-                    @audit_role,
-                    JSON_OBJECT(
-                        'nummer', OLD.nummer,
-                        'status', OLD.status,
-                        'reserviert_fuer', OLD.reserviert_fuer,
-                        'team_id', OLD.team_id,
-                        'teilnehmer_id', OLD.teilnehmer_id
-                    ),
-                    JSON_OBJECT(
-                        'nummer', NEW.nummer,
-                        'status', NEW.status,
-                        'reserviert_fuer', NEW.reserviert_fuer,
-                        'team_id', NEW.team_id,
-                        'teilnehmer_id', NEW.teilnehmer_id
-                    )
-                );"
-            );
-
-            $replaceTrigger(
-                $pdo,
-                'audit_startnummern_ad',
-                "CREATE TRIGGER audit_startnummern_ad AFTER DELETE ON startnummern FOR EACH ROW
-                INSERT INTO audit_log (table_name, action, row_pk, user_id, username, role, old_data, new_data)
-                VALUES (
-                    'startnummern',
-                    'DELETE',
-                    CAST(OLD.nummer AS CHAR(128)),
-                    @audit_user_id,
-                    @audit_username,
-                    @audit_role,
-                    JSON_OBJECT(
-                        'nummer', OLD.nummer,
-                        'status', OLD.status,
-                        'reserviert_fuer', OLD.reserviert_fuer,
-                        'teilnehmer_id', OLD.teilnehmer_id
-                    ),
-                    NULL
-                );"
-            );
-        } catch (Throwable $e) {
-            error_log('Audit trigger creation failed (startnummern): ' . $e->getMessage());
-        }
-    }
-
-    if ($tableExists($pdo, 'users')) {
-        try {
-            $replaceTrigger(
-                $pdo,
-                'audit_users_ai',
-                "CREATE TRIGGER audit_users_ai AFTER INSERT ON users FOR EACH ROW
-                INSERT INTO audit_log (table_name, action, row_pk, user_id, username, role, old_data, new_data)
-                VALUES (
-                    'users',
-                    'INSERT',
-                    CAST(NEW.id AS CHAR(128)),
-                    @audit_user_id,
-                    @audit_username,
-                    @audit_role,
-                    NULL,
-                    JSON_OBJECT(
-                        'id', NEW.id,
-                        'username', NEW.username,
-                        'role', NEW.role,
-                        'created_at', NEW.created_at
-                    )
-                );"
-            );
-
-            $replaceTrigger(
-                $pdo,
-                'audit_users_au',
-                "CREATE TRIGGER audit_users_au AFTER UPDATE ON users FOR EACH ROW
-                INSERT INTO audit_log (table_name, action, row_pk, user_id, username, role, old_data, new_data)
-                VALUES (
-                    'users',
-                    'UPDATE',
-                    CAST(NEW.id AS CHAR(128)),
-                    @audit_user_id,
-                    @audit_username,
-                    @audit_role,
-                    JSON_OBJECT(
-                        'id', OLD.id,
-                        'username', OLD.username,
-                        'role', OLD.role,
-                        'created_at', OLD.created_at
-                    ),
-                    JSON_OBJECT(
-                        'id', NEW.id,
-                        'username', NEW.username,
-                        'role', NEW.role,
-                        'created_at', NEW.created_at
-                    )
-                );"
-            );
-
-            $replaceTrigger(
-                $pdo,
-                'audit_users_ad',
-                "CREATE TRIGGER audit_users_ad AFTER DELETE ON users FOR EACH ROW
-                INSERT INTO audit_log (table_name, action, row_pk, user_id, username, role, old_data, new_data)
-                VALUES (
-                    'users',
-                    'DELETE',
-                    CAST(OLD.id AS CHAR(128)),
-                    @audit_user_id,
-                    @audit_username,
-                    @audit_role,
-                    JSON_OBJECT(
-                        'id', OLD.id,
-                        'username', OLD.username,
-                        'role', OLD.role,
-                        'created_at', OLD.created_at
-                    ),
-                    NULL
-                );"
-            );
-        } catch (Throwable $e) {
-            error_log('Audit trigger creation failed (users): ' . $e->getMessage());
-        }
-    }
-} catch (PDOException $e) {
-    // Falls keine DDL-Berechtigungen vorliegen, Fehler ignorieren
 }

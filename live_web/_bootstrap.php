@@ -12,6 +12,16 @@
 declare(strict_types=1);
 
 if (!function_exists('app_private_root')) {
+    /**
+     * Ermittelt das Wurzelverzeichnis des privaten Anwendungscodes.
+     *
+     * @doc-function live_web.bootstrap.app_private_root
+     * @doc-purpose Lokalisiert den privaten Code ueber die Umgebungsvariable APP_PRIVATE_ROOT oder bekannte Kandidatenpfade.
+     * @doc-return string Absoluter Pfad zum privaten Wurzelverzeichnis.
+     * @doc-note Bricht mit HTTP 500 ab, wenn keine gueltige Wurzel gefunden wird.
+     *
+     * @return string Absoluter Pfad zum privaten Wurzelverzeichnis.
+     */
     function app_private_root(): string
     {
         $envRoot = getenv('APP_PRIVATE_ROOT');
@@ -41,6 +51,18 @@ if (!function_exists('app_private_root')) {
 }
 
 if (!function_exists('app_require_private')) {
+    /**
+     * Bindet eine private Anwendungsdatei relativ zur privaten Wurzel ein.
+     *
+     * @doc-function live_web.bootstrap.app_require_private
+     * @doc-purpose Kapselt das sichere Einbinden privater Zielrouten fuer oeffentliche Wrapper.
+     * @doc-param string $relativePath Pfad relativ zum privaten Wurzelverzeichnis.
+     * @doc-return void
+     * @doc-note Bricht mit HTTP 500 ab, wenn die Zieldatei fehlt.
+     *
+     * @param string $relativePath Pfad relativ zum privaten Wurzelverzeichnis.
+     * @return void
+     */
     function app_require_private(string $relativePath): void
     {
         $root = app_private_root();

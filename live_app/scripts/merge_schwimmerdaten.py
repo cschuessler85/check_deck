@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 @doc-file
-@doc-id live_web.merge_schwimmerdaten
+@doc-id live_app.scripts.merge_schwimmerdaten
 @doc-kind cli-script
 @doc-purpose Fuehrt CSV-Stammdaten und JSON-Eventlogs zu einer aktualisierten Ergebnis-CSV zusammen.
 @doc-entry CLI-Aufruf durch Entwickler oder Betrieb.
 @doc-input CSV-Datei, JSON-Backup und optionale Zeitfensterdatei.
 @doc-output Aktualisierte CSV-Datei und Statusausgaben im Terminal.
 @doc-side-effects Liest Eingabedateien und schreibt eine neue Ausgabedatei.
+@doc-note Liegt im privaten Anwendungsordner, damit der Python-Quelltext nicht ueber das Webroot abrufbar ist.
+@doc-note Relative Pfadeingaben werden weiterhin gegen das aufrufende Arbeitsverzeichnis aufgeloest.
 """
 
 import argparse

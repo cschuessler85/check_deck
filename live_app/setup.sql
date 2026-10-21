@@ -9,6 +9,10 @@
 -- @doc-note Dieses Schema ist fuer die initiale Einrichtung gedacht und wird nur einmal ausgefuehrt.
 -- @doc-note Bei abweichender Zielumgebung muss insbesondere der Datenbankname angepasst werden.
 -- @doc-note Historische Request-Metadaten werden nicht mehr gespeichert; Altspalten entfernt das Skript scripts/privacy_cleanup.php.
+-- @doc-note Dieses Skript ist die fachliche Single Source of Truth des Schemas. Fuer Bestandsinstallationen
+--           wird dieselbe Struktur idempotent durch scripts/migrate.php hergestellt; beide Dateien muessen
+--           inhaltlich synchron gehalten werden.
+-- @doc-note Audit-Trigger werden bewusst nicht hier angelegt, sondern ausschliesslich in scripts/migrate.php.
 
 CREATE DATABASE IF NOT EXISTS dlrg_schwimmen
   DEFAULT CHARACTER SET utf8mb4
@@ -43,7 +47,7 @@ CREATE TABLE IF NOT EXISTS teilnehmer (
   startnummer INT DEFAULT NULL,
   UNIQUE KEY uniq_teilnehmer_code (code),
   KEY idx_teilnehmer_bezahlt (bezahlt),
-  KEY idx_teilnehmer_startnummer (startnummer),
+  UNIQUE KEY uniq_teilnehmer_startnummer (startnummer),
   KEY idx_teilnehmer_team_id (team_id),
   FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL
 )

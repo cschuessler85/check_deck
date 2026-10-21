@@ -11,114 +11,30 @@
  */
 declare(strict_types=1);
 
-if (!function_exists('app_session_configured_path')) {
-    function app_session_configured_path(): ?string
-    {
-        $raw = trim((string)session_save_path());
-        if ($raw === '') {
-            return null;
-        }
-
-        $parts = preg_split('/[;,]/', $raw);
-        if (!is_array($parts) || $parts === []) {
-            return $raw;
-        }
-
-        $candidate = trim((string)end($parts));
-        return $candidate !== '' ? $candidate : $raw;
-    }
-}
-
-if (!function_exists('app_session_ensure_storage_dir')) {
-    function app_session_ensure_storage_dir(string $path): ?string
-    {
-        $target = trim($path);
-        if ($target === '') {
-            return null;
-        }
-
-        if (!is_dir($target)) {
-            try {
-                mkdir($target, 0775, true);
-            } catch (Throwable $e) {
-                return null;
-            }
-        }
-
-        return is_dir($target) && is_writable($target) ? $target : null;
-    }
-}
-
-if (!function_exists('app_session_bootstrap_path')) {
-    // @doc-note CLI vermeidet bewusst persistente Sessions, waehrend Webzugriffe bei defekter PHP-Konfiguration auf einen lokalen Speicherpfad ausweichen.
-    function app_session_bootstrap_path(): ?string
-    {
-        if (PHP_SAPI === 'cli') {
-            return null;
-        }
-
-        $appRoot = dirname(__DIR__);
-        $fallbacks = [
-            $appRoot . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'sessions',
-            rtrim((string)sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'dlrg_24h_sessions',
-        ];
-
-        foreach ($fallbacks as $fallback) {
-            $ready = app_session_ensure_storage_dir($fallback);
-            if ($ready !== null) {
-                return $ready;
-            }
-        }
-
-        $configured = app_session_configured_path();
-        return $configured;
-    }
-}
-
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    if (PHP_SAPI === 'cli') {
-        if (!isset($_SESSION) || !is_array($_SESSION)) {
-            $_SESSION = [];
-        }
-    } else {
-        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (!empty($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443)
-            || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
-        $sessionPath = app_session_bootstrap_path();
-        if (is_string($sessionPath) && $sessionPath !== '') {
-            ini_set('session.save_path', $sessionPath);
-            session_save_path($sessionPath);
-        }
-        $params = session_get_cookie_params();
-        if (!headers_sent()) {
-            session_set_cookie_params([
-                'lifetime' => (int)($params['lifetime'] ?? 0),
-                'path' => (string)($params['path'] ?? '/'),
-                'domain' => (string)($params['domain'] ?? ''),
-                'secure' => $secure,
-                'httponly' => true,
-                'samesite' => 'Strict',
-            ]);
-        }
-        session_start();
-    }
-}
-
-if (!function_exists('safe_substr')) {
-    function safe_substr($value, $start, $length = null)
-    {
-        $value = (string)$value;
-        $start = (int)$start;
-        $length = $length === null ? null : (int)$length;
-        if (function_exists('mb_substr')) {
-            return $length === null ? mb_substr($value, $start) : mb_substr($value, $start, $length);
-        }
-        return $length === null ? substr($value, $start) : substr($value, $start, $length);
-    }
-}
+// @doc-section session-bootstrap-delegation
+// @doc-purpose Diese Bibliothek startet bewusst keine eigene Session und definiert keine Session-Helfer.
+// @doc-note Die Funktionen app_session_configured_path(), app_session_ensure_storage_dir(),
+//           app_session_bootstrap_path(), safe_substr() sowie der Session-Start werden ausschliesslich in
+//           includes/db_connect.php bereitgestellt (Single Source of Truth).
+// @doc-note Reihenfolge: includes/db_connect.php wird vor includes/functions.php eingebunden. Diese Datei
+//           bleibt auch isoliert ladbar, da sie beim Laden weder eine Session startet noch eine der
+//           delegierten Funktionen aufruft und db_connect.php nur zur Laufzeit benoetigt.
+// @doc-note Der multibyte-sichere Kurzhelfer safe_substr() wird von dieser Bibliothek intern genutzt und
+//           muss daher zur Laufzeit durch includes/db_connect.php bereitgestellt sein.
+// @doc-input Keine.
+// @doc-output Keine.
 
 // @doc-section session-and-auth-bootstrap
 // @doc-purpose Kapselt Session-Schutz, CSRF-Helfer und die grundlegende Login-Verwaltung.
+/**
+ * @doc-function live_app.includes.functions.escape
+ * @doc-purpose Wandelt einen Wert HTML-sicher fuer die Ausgabe um.
+ * @doc-param string|null $value Rohwert.
+ * @doc-return string HTML-escaped Wert.
+ *
+ * @param string|null $value Rohwert.
+ * @return string HTML-escaped Wert.
+ */
 function escape(?string $value): string
 {
     return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
@@ -126,6 +42,15 @@ function escape(?string $value): string
 
 // @doc-section asset-helpers
 // @doc-purpose Sucht gemeinsame Frontend-Assets robust in privaten und oeffentlichen Projektpfaden und liefert eine stabile Versionskennung.
+/**
+ * @doc-function live_app.includes.functions.app_asset_candidate_paths
+ * @doc-purpose Liefert die moeglichen absoluten Dateipfade fuer ein relatives Frontend-Asset.
+ * @doc-param string $relativePath Relativer Asset-Pfad ab dem App-Verzeichnis.
+ * @doc-return array Liste der Kandidatenpfade in Prioritaetsreihenfolge (App-Verzeichnis, danach live_web).
+ *
+ * @param string $relativePath Relativer Asset-Pfad ab dem App-Verzeichnis.
+ * @return array Liste der Kandidatenpfade in Prioritaetsreihenfolge (App-Verzeichnis, danach live_web).
+ */
 function app_asset_candidate_paths(string $relativePath): array
 {
     $normalized = ltrim(str_replace(['\\', '/'], DIRECTORY_SEPARATOR, $relativePath), DIRECTORY_SEPARATOR);
@@ -138,6 +63,15 @@ function app_asset_candidate_paths(string $relativePath): array
     ];
 }
 
+/**
+ * @doc-function live_app.includes.functions.app_asset_real_path
+ * @doc-purpose Ermittelt den ersten tatsaechlich vorhandenen Dateipfad eines Frontend-Assets.
+ * @doc-param string $relativePath Relativer Asset-Pfad ab dem App-Verzeichnis.
+ * @doc-return string|null Erster existierender Pfad oder null, wenn kein Kandidat existiert.
+ *
+ * @param string $relativePath Relativer Asset-Pfad ab dem App-Verzeichnis.
+ * @return string|null Erster existierender Pfad oder null, wenn kein Kandidat existiert.
+ */
 function app_asset_real_path(string $relativePath): ?string
 {
     foreach (app_asset_candidate_paths($relativePath) as $candidate) {
@@ -149,6 +83,15 @@ function app_asset_real_path(string $relativePath): ?string
     return null;
 }
 
+/**
+ * @doc-function live_app.includes.functions.app_asset_version
+ * @doc-purpose Erzeugt eine cachebare Versionskennung aus dem Aenderungszeitpunkt eines Assets.
+ * @doc-param string $relativePath Relativer Asset-Pfad ab dem App-Verzeichnis.
+ * @doc-return string Versionskennung (Zeitstempel, 'present' oder 'missing').
+ *
+ * @param string $relativePath Relativer Asset-Pfad ab dem App-Verzeichnis.
+ * @return string Versionskennung (Zeitstempel, 'present' oder 'missing').
+ */
 function app_asset_version(string $relativePath): string
 {
     $realPath = app_asset_real_path($relativePath);
@@ -164,6 +107,14 @@ function app_asset_version(string $relativePath): string
     return (string)((int)$mtime);
 }
 
+/**
+ * @doc-function live_app.includes.functions.csrf_token_get
+ * @doc-purpose Liefert das CSRF-Token der aktuellen Session und erzeugt es bei Bedarf neu.
+ * @doc-return string Aktuelles CSRF-Token der Session.
+ * @doc-note Das Token wird bei fehlendem oder ungueltigem Sessionwert neu erzeugt.
+ *
+ * @return string Aktuelles CSRF-Token der Session.
+ */
 function csrf_token_get(): string
 {
     if (empty($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token'])) {
@@ -172,6 +123,15 @@ function csrf_token_get(): string
     return $_SESSION['csrf_token'];
 }
 
+/**
+ * @doc-function live_app.includes.functions.csrf_token_verify
+ * @doc-purpose Prueft ein uebermitteltes CSRF-Token zeitkonstant gegen das Session-Token.
+ * @doc-param string|null $token Zu pruefendes Token aus der Anfrage.
+ * @doc-return bool True, wenn das Token gueltig ist.
+ *
+ * @param string|null $token Zu pruefendes Token aus der Anfrage.
+ * @return bool True, wenn das Token gueltig ist.
+ */
 function csrf_token_verify(?string $token): bool
 {
     if (!is_string($token) || $token === '') {
@@ -183,11 +143,26 @@ function csrf_token_verify(?string $token): bool
     return hash_equals($_SESSION['csrf_token'], $token);
 }
 
+/**
+ * @doc-function live_app.includes.functions.admin_is_logged_in
+ * @doc-purpose Prueft, ob die Session als Admin angemeldet ist.
+ * @doc-return bool True, wenn eine aktive Admin-Anmeldung existiert.
+ *
+ * @return bool True, wenn eine aktive Admin-Anmeldung existiert.
+ */
 function admin_is_logged_in(): bool
 {
     return !empty($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true;
 }
 
+/**
+ * @doc-function live_app.includes.functions.admin_login
+ * @doc-purpose Markiert die aktuelle Session als Admin-Anmeldung und erneuert deren ID.
+ * @doc-return void
+ * @doc-note Die Session-ID wird bei aktiver Session regeneriert; ein etwaiges HTTP-Logout wird zurueckgesetzt.
+ *
+ * @return void
+ */
 function admin_login(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -197,6 +172,13 @@ function admin_login(): void
     auth_clear_http_logout();
 }
 
+/**
+ * @doc-function live_app.includes.functions.admin_logout
+ * @doc-purpose Beendet die Session vollstaendig und entfernt das Session-Cookie.
+ * @doc-return void
+ *
+ * @return void
+ */
 function admin_logout(): void
 {
     $_SESSION = [];
@@ -207,6 +189,13 @@ function admin_logout(): void
     session_destroy();
 }
 
+/**
+ * @doc-function live_app.includes.functions.admin_password_hash_default
+ * @doc-purpose Erzeugt aus dem Umgebungspasswort einen Passwort-Hash fuer den Setup-Admin.
+ * @doc-return string Passwort-Hash oder leerer String, wenn kein Passwort konfiguriert ist.
+ *
+ * @return string Passwort-Hash oder leerer String, wenn kein Passwort konfiguriert ist.
+ */
 function admin_password_hash_default(): string
 {
     $pw = getenv('ADMIN_SETUP_PASSWORD');
@@ -220,6 +209,13 @@ function admin_password_hash_default(): string
     return password_hash($pw, PASSWORD_DEFAULT);
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_setup_password_enabled
+ * @doc-purpose Prueft, ob das Setup-Passwort per Umgebungsflag freigeschaltet ist.
+ * @doc-return bool True, wenn ALLOW_SETUP_PASSWORD gesetzt auf '1' ist.
+ *
+ * @return bool True, wenn ALLOW_SETUP_PASSWORD gesetzt auf '1' ist.
+ */
 function auth_setup_password_enabled(): bool
 {
     $flag = getenv('ALLOW_SETUP_PASSWORD');
@@ -229,6 +225,13 @@ function auth_setup_password_enabled(): bool
     return trim((string)$flag) === '1';
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_http_user
+ * @doc-purpose Liest den per HTTP-Authentifizierung uebermittelten Benutzernamen aus.
+ * @doc-return string|null Benutzername oder null, wenn keiner uebermittelt wurde.
+ *
+ * @return string|null Benutzername oder null, wenn keiner uebermittelt wurde.
+ */
 function auth_http_user(): ?string
 {
     $user = null;
@@ -246,6 +249,13 @@ function auth_http_user(): ?string
 
 // @doc-section role-and-permission-model
 // @doc-purpose Ordnet Rollen ihren Rechten zu und stellt die Berechtigungspruefung fuer Controller bereit.
+/**
+ * @doc-function live_app.includes.functions.auth_role_permissions
+ * @doc-purpose Definiert die Berechtigungsmatrix je Rolle als zentrale Quelle.
+ * @doc-return array Zuordnung von Rolle zu Liste erlaubter Berechtigungen ('*' fuer Vollzugriff).
+ *
+ * @return array Zuordnung von Rolle zu Liste erlaubter Berechtigungen ('*' fuer Vollzugriff).
+ */
 function auth_role_permissions(): array
 {
     return [
@@ -257,6 +267,15 @@ function auth_role_permissions(): array
     ];
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_users_enabled
+ * @doc-purpose Prueft, ob die Benutzertabelle in der Datenbank vorhanden ist.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-return bool True, wenn die Tabelle users erreichbar ist.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @return bool True, wenn die Tabelle users erreichbar ist.
+ */
 function auth_users_enabled(PDO $pdo): bool
 {
     try {
@@ -267,6 +286,15 @@ function auth_users_enabled(PDO $pdo): bool
     }
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_is_setup_mode
+ * @doc-purpose Prueft, ob sich das System im Ersteinrichtungsmodus ohne Benutzer befindet.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-return bool True, wenn die Benutzertabelle existiert und leer ist.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @return bool True, wenn die Benutzertabelle existiert und leer ist.
+ */
 function auth_is_setup_mode(PDO $pdo): bool
 {
     try {
@@ -280,6 +308,15 @@ function auth_is_setup_mode(PDO $pdo): bool
     }
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_admin_count
+ * @doc-purpose Ermittelt die Anzahl vorhandener Admin-Benutzer.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-return int|null Anzahl der Admins oder null, wenn die Tabelle nicht verfuegbar ist.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @return int|null Anzahl der Admins oder null, wenn die Tabelle nicht verfuegbar ist.
+ */
 function auth_admin_count(PDO $pdo): ?int
 {
     try {
@@ -292,6 +329,15 @@ function auth_admin_count(PDO $pdo): ?int
     }
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_allow_setup_password
+ * @doc-purpose Entscheidet, ob eine Anmeldung mit dem Setup-Passwort erlaubt ist.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-return bool True, wenn das Setup-Passwort genutzt werden darf.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @return bool True, wenn das Setup-Passwort genutzt werden darf.
+ */
 function auth_allow_setup_password(PDO $pdo): bool
 {
     if (!auth_setup_password_enabled()) {
@@ -304,6 +350,15 @@ function auth_allow_setup_password(PDO $pdo): bool
     return $adminCount === 0;
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_role_normalize
+ * @doc-purpose Vereinheitlicht veraltete Rollennamen auf die aktuelle Rollenbezeichnung.
+ * @doc-param string $role Roh-Rollenname.
+ * @doc-return string Normalisierter Rollenname ('numbers' wird zu 'orga').
+ *
+ * @param string $role Roh-Rollenname.
+ * @return string Normalisierter Rollenname ('numbers' wird zu 'orga').
+ */
 function auth_role_normalize(string $role): string
 {
     $r = trim($role);
@@ -313,6 +368,19 @@ function auth_role_normalize(string $role): string
     return $r;
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_set_session
+ * @doc-purpose Schreibt die Benutzeridentitaet in die Session und setzt ein HTTP-Logout zurueck.
+ * @doc-param int $user_id Benutzer-ID.
+ * @doc-param string $username Benutzername.
+ * @doc-param string $role Rollenname.
+ * @doc-return void
+ *
+ * @param int $user_id Benutzer-ID.
+ * @param string $username Benutzername.
+ * @param string $role Rollenname.
+ * @return void
+ */
 function auth_set_session(int $user_id, string $username, string $role): void
 {
     $_SESSION['user_id'] = $user_id;
@@ -321,11 +389,29 @@ function auth_set_session(int $user_id, string $username, string $role): void
     auth_clear_http_logout();
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_clear_session
+ * @doc-purpose Loescht die Anmeldesitzung des Benutzers.
+ * @doc-return void
+ * @doc-note Delegiert an admin_logout() und beendet damit die gesamte Session.
+ *
+ * @return void
+ */
 function auth_clear_session(): void
 {
     admin_logout();
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_current_user
+ * @doc-purpose Ermittelt den aktuell angemeldeten Benutzer aus Session, Admin-Flag oder HTTP-Auth.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-return array|null Benutzerdaten (id, username, role) oder null, wenn nicht angemeldet.
+ * @doc-note Das Ergebnis wird statisch innerhalb des Requests zwischengespeichert.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @return array|null Benutzerdaten (id, username, role) oder null, wenn nicht angemeldet.
+ */
 function auth_current_user(PDO $pdo): ?array
 {
     static $cached = null;
@@ -389,6 +475,15 @@ function auth_current_user(PDO $pdo): ?array
     return null;
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_is_logged_in
+ * @doc-purpose Prueft, ob aktuell ein Benutzer angemeldet ist.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-return bool True, wenn auth_current_user() einen Benutzer liefert.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @return bool True, wenn ein Benutzer angemeldet ist.
+ */
 function auth_is_logged_in(PDO $pdo): bool
 {
     return auth_current_user($pdo) !== null;
@@ -396,6 +491,13 @@ function auth_is_logged_in(PDO $pdo): bool
 
 // @doc-section login-throttling
 // @doc-purpose Schuetzt den Login vor Brute-Force durch Begrenzung von Fehlversuchen pro IP und Benutzername.
+/**
+ * @doc-function live_app.includes.functions.auth_login_attempts_file
+ * @doc-purpose Liefert den Pfad zur Datei mit den Login-Fehlversuchen und legt das Verzeichnis an.
+ * @doc-return string Absoluter Pfad zur login_attempts.json.
+ *
+ * @return string Absoluter Pfad zur login_attempts.json.
+ */
 function auth_login_attempts_file(): string
 {
     $appRoot = dirname(__DIR__);
@@ -406,6 +508,13 @@ function auth_login_attempts_file(): string
     return $dir . DIRECTORY_SEPARATOR . 'login_attempts.json';
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_login_client_ip
+ * @doc-purpose Ermittelt die Client-IP fuer die Fehlversuchszaehlung.
+ * @doc-return string Client-IP oder '0.0.0.0' als Rueckfallwert.
+ *
+ * @return string Client-IP oder '0.0.0.0' als Rueckfallwert.
+ */
 function auth_login_client_ip(): string
 {
     $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
@@ -415,6 +524,13 @@ function auth_login_client_ip(): string
     return $ip;
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_login_load_attempts
+ * @doc-purpose Laedt die gespeicherten Login-Fehlversuche aus der Datei.
+ * @doc-return array Fehlversuchsstruktur oder leeres Array bei fehlender/ungueltiger Datei.
+ *
+ * @return array Fehlversuchsstruktur oder leeres Array bei fehlender/ungueltiger Datei.
+ */
 function auth_login_load_attempts(): array
 {
     $file = auth_login_attempts_file();
@@ -429,12 +545,32 @@ function auth_login_load_attempts(): array
     return is_array($data) ? $data : [];
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_login_save_attempts
+ * @doc-purpose Persistiert die Login-Fehlversuche unter exklusiver Dateisperre.
+ * @doc-param array $data Fehlversuchsstruktur.
+ * @doc-return void
+ *
+ * @param array $data Fehlversuchsstruktur.
+ * @return void
+ */
 function auth_login_save_attempts(array $data): void
 {
     $file = auth_login_attempts_file();
     @file_put_contents($file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_login_prune_attempts
+ * @doc-purpose Entfernt Fehlversuchseintraege ausserhalb des Zeitfensters.
+ * @doc-param array $data Fehlversuchsstruktur.
+ * @doc-param int $windowSec Gueltiges Zeitfenster in Sekunden.
+ * @doc-return array Bereinigte Fehlversuchsstruktur.
+ *
+ * @param array $data Fehlversuchsstruktur.
+ * @param int $windowSec Gueltiges Zeitfenster in Sekunden.
+ * @return array Bereinigte Fehlversuchsstruktur.
+ */
 function auth_login_prune_attempts(array $data, int $windowSec): array
 {
     $cutoff = time() - $windowSec;
@@ -455,6 +591,21 @@ function auth_login_prune_attempts(array $data, int $windowSec): array
     return $data;
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_login_is_locked
+ * @doc-purpose Prueft, ob IP oder Benutzername wegen zu vieler Fehlversuche gesperrt ist.
+ * @doc-param string $ip Client-IP.
+ * @doc-param string $username Benutzername.
+ * @doc-param int $maxAttempts Maximale Fehlversuche bis zur Sperre.
+ * @doc-param int $lockSec Sperrdauer in Sekunden.
+ * @doc-return array Status mit 'locked', 'ip_count', 'user_count', 'max_attempts' und 'lock_seconds'.
+ *
+ * @param string $ip Client-IP.
+ * @param string $username Benutzername.
+ * @param int $maxAttempts Maximale Fehlversuche bis zur Sperre.
+ * @param int $lockSec Sperrdauer in Sekunden.
+ * @return array Status mit Sperrinformationen.
+ */
 function auth_login_is_locked(string $ip, string $username, int $maxAttempts = 5, int $lockSec = 900): array
 {
     $data = auth_login_load_attempts();
@@ -476,6 +627,19 @@ function auth_login_is_locked(string $ip, string $username, int $maxAttempts = 5
     ];
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_login_record_failure
+ * @doc-purpose Erfasst einen Login-Fehlversuch fuer IP und Benutzername.
+ * @doc-param string $ip Client-IP.
+ * @doc-param string $username Benutzername.
+ * @doc-param int $lockSec Sperrfenster in Sekunden, in dem Fehlversuche zaehlen.
+ * @doc-return void
+ *
+ * @param string $ip Client-IP.
+ * @param string $username Benutzername.
+ * @param int $lockSec Sperrfenster in Sekunden, in dem Fehlversuche zaehlen.
+ * @return void
+ */
 function auth_login_record_failure(string $ip, string $username, int $lockSec = 900): void
 {
     $data = auth_login_load_attempts();
@@ -490,6 +654,17 @@ function auth_login_record_failure(string $ip, string $username, int $lockSec = 
     auth_login_save_attempts($data);
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_login_clear_attempts
+ * @doc-purpose Loescht die Fehlversuche fuer IP und Benutzername nach erfolgreicher Anmeldung.
+ * @doc-param string $ip Client-IP.
+ * @doc-param string $username Benutzername.
+ * @doc-return void
+ *
+ * @param string $ip Client-IP.
+ * @param string $username Benutzername.
+ * @return void
+ */
 function auth_login_clear_attempts(string $ip, string $username): void
 {
     $data = auth_login_load_attempts();
@@ -498,6 +673,16 @@ function auth_login_clear_attempts(string $ip, string $username): void
     auth_login_save_attempts($data);
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_login_progressive_delay
+ * @doc-purpose Verzoegert weitere Login-Versuche progressiv zur Verlangsamung von Brute-Force.
+ * @doc-param int $failureCount Bisherige Fehlversuche.
+ * @doc-return void
+ * @doc-note Die Verzoegerung ist auf maximal 2 Sekunden begrenzt.
+ *
+ * @param int $failureCount Bisherige Fehlversuche.
+ * @return void
+ */
 function auth_login_progressive_delay(int $failureCount): void
 {
     // Progressives Delay: 0s bei 0 Fehlversuchen, bis max. 2s.
@@ -509,11 +694,27 @@ function auth_login_progressive_delay(int $failureCount): void
 
 // @doc-section password-policy
 // @doc-purpose Erzwingt eine Mindestpasswortqualitaet bei Anlage und Aenderung von Benutzerpasswoertern.
+/**
+ * @doc-function live_app.includes.functions.auth_password_min_length
+ * @doc-purpose Liefert die zentral definierte Mindestlaenge fuer Benutzerpasswoerter.
+ * @doc-return int Mindestlaenge in Zeichen.
+ *
+ * @return int Mindestlaenge in Zeichen.
+ */
 function auth_password_min_length(): int
 {
     return 12;
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_password_validate
+ * @doc-purpose Prueft ein Passwort gegen die Passwortrichtlinie und sammelt Fehlermeldungen.
+ * @doc-param string $password Zu pruefendes Passwort.
+ * @doc-return array Ergebnis mit 'valid' (bool) und 'errors' (Liste der Fehlermeldungen).
+ *
+ * @param string $password Zu pruefendes Passwort.
+ * @return array Ergebnis mit 'valid' (bool) und 'errors' (Liste der Fehlermeldungen).
+ */
 function auth_password_validate(string $password): array
 {
     $errors = [];
@@ -537,6 +738,20 @@ function auth_password_validate(string $password): array
     ];
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_login_with_credentials
+ * @doc-purpose Meldet einen Benutzer mit Benutzername und Passwort unter Beruecksichtigung der Sperrlogik an.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-param string $username Benutzername.
+ * @doc-param string $password Klartextpasswort.
+ * @doc-return bool True bei erfolgreicher Anmeldung.
+ * @doc-note Bei Fehlschlag werden Fehlversuche gezaehlt; im Setup-Modus ist die Anmeldung deaktiviert.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @param string $username Benutzername.
+ * @param string $password Klartextpasswort.
+ * @return bool True bei erfolgreicher Anmeldung.
+ */
 function auth_login_with_credentials(PDO $pdo, string $username, string $password): bool
 {
     $username = trim($username);
@@ -576,6 +791,17 @@ function auth_login_with_credentials(PDO $pdo, string $username, string $passwor
     }
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_can
+ * @doc-purpose Prueft, ob der aktuelle Benutzer die angeforderte Berechtigung besitzt.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-param string $permission Zu pruefende Berechtigung.
+ * @doc-return bool True, wenn die Berechtigung erlaubt ist.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @param string $permission Zu pruefende Berechtigung.
+ * @return bool True, wenn die Berechtigung erlaubt ist.
+ */
 function auth_can(PDO $pdo, string $permission): bool
 {
     $user = auth_current_user($pdo);
@@ -594,6 +820,18 @@ function auth_can(PDO $pdo, string $permission): bool
     return in_array($permission, $perms, true);
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_verify_token
+ * @doc-purpose Verifiziert ein Access-Token und liefert den zugehoerigen Benutzer.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-param string $raw_token Ungehashtes Access-Token.
+ * @doc-return array|null Benutzerdaten (user_id, username, role, token_id) oder null, wenn ungueltig/abgelaufen.
+ * @doc-note Aktualisiert last_used_at bei gueltigem Token.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @param string $raw_token Ungehashtes Access-Token.
+ * @return array|null Benutzerdaten oder null, wenn ungueltig/abgelaufen.
+ */
 function auth_verify_token(PDO $pdo, string $raw_token): ?array
 {
     if ($raw_token === '') {
@@ -626,6 +864,20 @@ function auth_verify_token(PDO $pdo, string $raw_token): ?array
     }
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_require_role
+ * @doc-purpose Erzwingt eine Rollenzugehoerigkeit und leitet sonst auf eine Zielseite um.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-param array $roles Erlaubte Rollen.
+ * @doc-param string $redirect_to Umleitungsziel bei fehlender Berechtigung.
+ * @doc-return void
+ * @doc-note Beendet das Skript bei fehlender Berechtigung per exit.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @param array $roles Erlaubte Rollen.
+ * @param string $redirect_to Umleitungsziel bei fehlender Berechtigung.
+ * @return void
+ */
 function auth_require_role(PDO $pdo, array $roles, string $redirect_to = 'admin.php'): void
 {
     $user = auth_current_user($pdo);
@@ -636,6 +888,18 @@ function auth_require_role(PDO $pdo, array $roles, string $redirect_to = 'admin.
     }
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_require_permission_or_403_json
+ * @doc-purpose Erzwingt eine Berechtigung und antwortet sonst mit HTTP 403 als JSON.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-param string $permission Erforderliche Berechtigung.
+ * @doc-return void
+ * @doc-note Beendet das Skript bei fehlender Berechtigung per exit.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @param string $permission Erforderliche Berechtigung.
+ * @return void
+ */
 function auth_require_permission_or_403_json(PDO $pdo, string $permission): void
 {
     if (!auth_can($pdo, $permission)) {
@@ -648,6 +912,20 @@ function auth_require_permission_or_403_json(PDO $pdo, string $permission): void
 
 // @doc-section notifications
 // @doc-purpose Sendet optionale Benachrichtigungen an externe Kanäle, wenn neue Anmeldungen eingehen.
+/**
+ * @doc-function live_app.includes.functions.push_notify_new_registration
+ * @doc-purpose Benachrichtigt einen externen ntfy-Kanal ueber eine neue Anmeldung.
+ * @doc-param string $vorname Vorname des Neuzugangs.
+ * @doc-param string $nachname Nachname des Neuzugangs.
+ * @doc-param string|null $teamname Optionaler Teamname.
+ * @doc-return void
+ * @doc-note Ohne konfigurierten NTFY_TOPIC passiert nichts; Versandfehler werden bewusst ignoriert.
+ *
+ * @param string $vorname Vorname des Neuzugangs.
+ * @param string $nachname Nachname des Neuzugangs.
+ * @param string|null $teamname Optionaler Teamname.
+ * @return void
+ */
 function push_notify_new_registration(string $vorname, string $nachname, ?string $teamname = null): void
 {
     $topic = trim((string)getenv('NTFY_TOPIC'));
@@ -708,11 +986,27 @@ function push_notify_new_registration(string $vorname, string $nachname, ?string
 
 // @doc-section registration-codes
 // @doc-purpose Erzeugt, normalisiert und prueft abtippfreundliche Registrierungscodes inklusive Prüfziffer.
+/**
+ * @doc-function live_app.includes.functions.registration_code_alphabet
+ * @doc-purpose Liefert das abtippfreundliche Zeichenalphabet fuer Registrierungscodes.
+ * @doc-return string Alphabet ohne verwechselbare Zeichen (kein 0/O/1/I).
+ *
+ * @return string Alphabet ohne verwechselbare Zeichen (kein 0/O/1/I).
+ */
 function registration_code_alphabet(): string
 {
     return '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
 }
 
+/**
+ * @doc-function live_app.includes.functions.registration_code_normalize
+ * @doc-purpose Vereinheitlicht einen Registrierungscode auf Grossbuchstaben ohne Trennzeichen.
+ * @doc-param string $code Roh-Code.
+ * @doc-return string Normalisierter Code.
+ *
+ * @param string $code Roh-Code.
+ * @return string Normalisierter Code.
+ */
 function registration_code_normalize(string $code): string
 {
     $c = strtoupper($code);
@@ -720,6 +1014,17 @@ function registration_code_normalize(string $code): string
     return is_string($c) ? $c : '';
 }
 
+/**
+ * @doc-function live_app.includes.functions.registration_name_normalize
+ * @doc-purpose Bereinigt einen Namensstring und begrenzt dessen Laenge.
+ * @doc-param string $name Roh-Name.
+ * @doc-param int $maxLen Maximale Laenge; 0 bedeutet keine Begrenzung.
+ * @doc-return string Bereinigter Name.
+ *
+ * @param string $name Roh-Name.
+ * @param int $maxLen Maximale Laenge; 0 bedeutet keine Begrenzung.
+ * @return string Bereinigter Name.
+ */
 function registration_name_normalize(string $name, int $maxLen = 100): string
 {
     $name = trim($name);
@@ -731,6 +1036,15 @@ function registration_name_normalize(string $name, int $maxLen = 100): string
     return $name;
 }
 
+/**
+ * @doc-function live_app.includes.functions.registration_code_format
+ * @doc-purpose Formatiert einen Registrierungscode in Vierergruppen fuer die Anzeige.
+ * @doc-param string $code Roh-Code.
+ * @doc-return string Formatierter Code mit Bindestrichen oder leerer String.
+ *
+ * @param string $code Roh-Code.
+ * @return string Formatierter Code mit Bindestrichen oder leerer String.
+ */
 function registration_code_format(string $code): string
 {
     $c = registration_code_normalize($code);
@@ -741,6 +1055,19 @@ function registration_code_format(string $code): string
     return implode('-', $parts);
 }
 
+/**
+ * @doc-function live_app.includes.functions.luhn_mod_n_check_char
+ * @doc-purpose Berechnet die Luhn-Mod-N-Pruefziffer fuer einen Code-Rumpf.
+ * @doc-param string $body Code-Rumpf ohne Pruefziffer.
+ * @doc-param string $alphabet Verwendetes Zeichenalphabet.
+ * @doc-return string Berechnete Pruefziffer.
+ * @doc-throws RuntimeException Wenn das Alphabet zu kurz ist oder ein Zeichen nicht im Alphabet vorkommt.
+ *
+ * @param string $body Code-Rumpf ohne Pruefziffer.
+ * @param string $alphabet Verwendetes Zeichenalphabet.
+ * @return string Berechnete Pruefziffer.
+ * @throws RuntimeException Wenn das Alphabet zu kurz ist oder ein Zeichen ungueltig ist.
+ */
 function luhn_mod_n_check_char(string $body, string $alphabet): string
 {
     $n = strlen($alphabet);
@@ -769,6 +1096,15 @@ function luhn_mod_n_check_char(string $body, string $alphabet): string
     return $alphabet[$checkCodePoint];
 }
 
+/**
+ * @doc-function live_app.includes.functions.registration_code_generate
+ * @doc-purpose Erzeugt einen neuen Registrierungscode mit angehaengter Pruefziffer.
+ * @doc-param int $random_len Anzahl der Zufallszeichen im Rumpf.
+ * @doc-return string Vollstaendiger Code inklusive Pruefziffer.
+ *
+ * @param int $random_len Anzahl der Zufallszeichen im Rumpf.
+ * @return string Vollstaendiger Code inklusive Pruefziffer.
+ */
 function registration_code_generate(int $random_len = 9): string
 {
     // @doc-note Der Code bleibt bewusst abtippfreundlich.
@@ -783,6 +1119,15 @@ function registration_code_generate(int $random_len = 9): string
     return $body . $check;
 }
 
+/**
+ * @doc-function live_app.includes.functions.registration_code_is_valid
+ * @doc-purpose Prueft die Gueltigkeit eines Registrierungscodes anhand seiner Pruefziffer.
+ * @doc-param string $code Zu pruefender Code.
+ * @doc-return bool True, wenn der Code formal gueltig ist.
+ *
+ * @param string $code Zu pruefender Code.
+ * @return bool True, wenn der Code formal gueltig ist.
+ */
 function registration_code_is_valid(string $code): bool
 {
     $alphabet = registration_code_alphabet();
@@ -802,6 +1147,15 @@ function registration_code_is_valid(string $code): bool
 
 // @doc-section team-helpers
 // @doc-purpose Vereinheitlicht Teamnamen und kapselt Team-Lookups beziehungsweise automatische Team-Anlage.
+/**
+ * @doc-function live_app.includes.functions.get_existing_teams
+ * @doc-purpose Laedt alle benannten Teams als ID-Name-Paare.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-return array Liste von Teams mit 'id' und 'name'.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @return array Liste von Teams mit 'id' und 'name'.
+ */
 function get_existing_teams(PDO $pdo): array
 {
     $stmt = $pdo->query("
@@ -822,6 +1176,15 @@ function get_existing_teams(PDO $pdo): array
     return $out;
 }
 
+/**
+ * @doc-function live_app.includes.functions.team_name_normalize
+ * @doc-purpose Bereinigt einen Teamnamen und begrenzt dessen Laenge.
+ * @doc-param string|null $name Roh-Teamname.
+ * @doc-return string|null Bereinigter Teamname oder null, wenn leer.
+ *
+ * @param string|null $name Roh-Teamname.
+ * @return string|null Bereinigter Teamname oder null, wenn leer.
+ */
 function team_name_normalize(?string $name): ?string
 {
     $in = trim((string)($name ?? ''));
@@ -832,6 +1195,17 @@ function team_name_normalize(?string $name): ?string
     return $n !== '' ? $n : null;
 }
 
+/**
+ * @doc-function live_app.includes.functions.team_get_or_create_id
+ * @doc-purpose Liefert die ID eines Teams und legt es bei Bedarf atomar neu an.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-param string|null $teamname Teamname.
+ * @doc-return int|null Team-ID oder null bei leerem Namen oder Fehler.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @param string|null $teamname Teamname.
+ * @return int|null Team-ID oder null bei leerem Namen oder Fehler.
+ */
 function team_get_or_create_id(PDO $pdo, ?string $teamname): ?int
 {
     $name = team_name_normalize($teamname);
@@ -855,6 +1229,17 @@ function team_get_or_create_id(PDO $pdo, ?string $teamname): ?int
     }
 }
 
+/**
+ * @doc-function live_app.includes.functions.team_get_name_by_id
+ * @doc-purpose Ermittelt den Namen eines Teams anhand seiner ID.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-param int|null $team_id Team-ID.
+ * @doc-return string|null Teamname oder null, wenn nicht vorhanden.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @param int|null $team_id Team-ID.
+ * @return string|null Teamname oder null, wenn nicht vorhanden.
+ */
 function team_get_name_by_id(PDO $pdo, ?int $team_id): ?string
 {
     $id = $team_id ?? null;
@@ -874,6 +1259,17 @@ function team_get_name_by_id(PDO $pdo, ?int $team_id): ?string
 
 // @doc-section startnummern
 // @doc-purpose Liefert Vorschlaege und Zuweisungslogik fuer freie oder teamreservierte Startnummern.
+/**
+ * @doc-function live_app.includes.functions.get_next_startnummer_suggestion
+ * @doc-purpose Schlaegt eine naechste Startnummer unter Bevorzugung teamreservierter Nummern vor.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-param int|null $team_id Optionale Team-ID.
+ * @doc-return int|null Vorgeschlagene Startnummer oder null, wenn keine frei ist.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @param int|null $team_id Optionale Team-ID.
+ * @return int|null Vorgeschlagene Startnummer oder null, wenn keine frei ist.
+ */
 function get_next_startnummer_suggestion(PDO $pdo, ?int $team_id): ?int
 {
     $nummer = null;
@@ -894,52 +1290,142 @@ function get_next_startnummer_suggestion(PDO $pdo, ?int $team_id): ?int
     return $nummer ? (int)$nummer : null;
 }
 
-function assign_startnummer(PDO $pdo, int $teilnehmer_id, ?int $team_id): ?int
+/**
+ * Weist einem Teilnehmer transaktionssicher eine Startnummer zu.
+ *
+ * @doc-function assign_startnummer
+ * @doc-purpose Kapselt Startnummernvergabe, Wunschnummernpruefung und optionale Zahlungsmarkierung in einer
+ *             einzigen geschuetzten Transaktion und verhindert so TOCTOU-Race-Conditions.
+ * @doc-param PDO $pdo MySQL-Verbindung (Verwaltungs-Datenbank).
+ * @doc-param int $teilnehmer_id ID des Ziel-Teilnehmers.
+ * @doc-param int|null $team_id Optionale Team-ID zur Bevorzugung reservierter Nummern; ohne Angabe wird die
+ *                              Teamzuordnung des Teilnehmers verwendet.
+ * @doc-param int $wunschnummer Wunschnummer > 0; 0 bedeutet automatische Vergabe.
+ * @doc-param bool $markPaid Markiert den Teilnehmer in derselben Transaktion als bezahlt.
+ * @doc-return int|null Vergebene Startnummer oder null, wenn keine Nummer verfuegbar ist.
+ * @doc-throws RuntimeException Wenn der Teilnehmer fehlt, die Wunschnummer bereits vergeben ist oder das
+ *                             UPDATE durch eine Statusaenderung nicht angewendet werden konnte.
+ * @doc-note Eigene Transaktion wird nur gestartet, wenn der Aufrufer noch keine aktiv hat; eine bestehende
+ *           Aufrufer-Transaktion wird nahtlos mitgenutzt.
+ */
+function assign_startnummer(PDO $pdo, int $teilnehmer_id, ?int $team_id, int $wunschnummer = 0, bool $markPaid = false): ?int
 {
-    // @doc-note Behaelt eine bereits zugewiesene Nummer unveraendert bei.
-    $stmt = $pdo->prepare("SELECT startnummer FROM teilnehmer WHERE id = ?");
-    $stmt->execute([$teilnehmer_id]);
-    $existing = $stmt->fetchColumn();
-    if ($existing) {
-        return (int)$existing;
-    }
-
-    $nummer = null;
-
-    // @doc-note Sucht zuerst nach einer Teamreservierung, wenn eine Team-ID bekannt ist.
-    if (is_int($team_id) && $team_id > 0) {
-        $stmt = $pdo->prepare("SELECT nummer FROM startnummern WHERE status = 'reserviert' AND team_id = ? ORDER BY nummer ASC LIMIT 1");
-        $stmt->execute([$team_id]);
-        $nummer = $stmt->fetchColumn();
-    }
-
-    // @doc-note Nutzt ersatzweise die naechste freie Nummer, wenn keine Reservierung greift.
-    if (!$nummer) {
-        $stmt = $pdo->query("SELECT nummer FROM startnummern WHERE status = 'frei' ORDER BY nummer ASC LIMIT 1");
-        $nummer = $stmt->fetchColumn();
-    }
-
-    if ($nummer) {
-        // @doc-note Verbucht die Nummer atomar in Startnummern- und Teilnehmer-Tabelle.
+    $ownTransaction = !$pdo->inTransaction();
+    if ($ownTransaction) {
         $pdo->beginTransaction();
-        $updS = $pdo->prepare("UPDATE startnummern SET status = 'vergeben', teilnehmer_id = ?, reserviert_fuer = NULL, team_id = NULL WHERE nummer = ?");
-        $updS->execute([$teilnehmer_id, $nummer]);
-        $updT = $pdo->prepare("UPDATE teilnehmer SET startnummer = ? WHERE id = ?");
-        $updT->execute([$nummer, $teilnehmer_id]);
-        $pdo->commit();
-        return (int)$nummer;
     }
 
-    return null; // Keine freien Nummern mehr
+    try {
+        // @doc-note Teilnehmer zuerst sperren, damit gleichzeitige Aufrufe serialisiert werden.
+        $lock = $pdo->prepare('SELECT id, team_id, bezahlt, startnummer FROM teilnehmer WHERE id = ? LIMIT 1 FOR UPDATE');
+        $lock->execute([$teilnehmer_id]);
+        $teilnehmer = $lock->fetch(PDO::FETCH_ASSOC);
+        if (!$teilnehmer) {
+            throw new RuntimeException('Teilnehmer nicht gefunden.');
+        }
+
+        if (!is_int($team_id) || $team_id <= 0) {
+            $team_id = ((int)($teilnehmer['team_id'] ?? 0)) > 0 ? (int)$teilnehmer['team_id'] : null;
+        }
+        $existing = (int)($teilnehmer['startnummer'] ?? 0);
+
+        $nummer = 0;
+        $target = null;
+
+        if ($wunschnummer > 0) {
+            // @doc-note Wunsch-Startnummer sperren und Konflikt mit einem anderen Teilnehmer sauber abweisen.
+            $nLock = $pdo->prepare('SELECT nummer, status, teilnehmer_id FROM startnummern WHERE nummer = ? LIMIT 1 FOR UPDATE');
+            $nLock->execute([$wunschnummer]);
+            $target = $nLock->fetch(PDO::FETCH_ASSOC) ?: null;
+            if (is_array($target)) {
+                $status = (string)($target['status'] ?? '');
+                $owner = (int)($target['teilnehmer_id'] ?? 0);
+                if ($status === 'vergeben' && $owner !== $teilnehmer_id) {
+                    throw new RuntimeException('Startnummer ' . $wunschnummer . ' ist bereits vergeben.');
+                }
+            }
+            $nummer = $wunschnummer;
+        } elseif ($existing > 0) {
+            // @doc-note Eine bereits zugewiesene Nummer bleibt bestehen; Zeile wird zur Konsistenzpruefung gesperrt.
+            $nummer = $existing;
+            $nLock = $pdo->prepare('SELECT nummer, status, teilnehmer_id FROM startnummern WHERE nummer = ? LIMIT 1 FOR UPDATE');
+            $nLock->execute([$existing]);
+            $target = $nLock->fetch(PDO::FETCH_ASSOC) ?: null;
+        } else {
+            // @doc-note Automatische Vergabe: bevorzugt teamreservierte, sonst die naechste freie Nummer.
+            if ($team_id !== null) {
+                $r = $pdo->prepare("SELECT nummer FROM startnummern WHERE status = 'reserviert' AND team_id = ? ORDER BY nummer ASC LIMIT 1 FOR UPDATE");
+                $r->execute([$team_id]);
+                $nummer = (int)($r->fetchColumn() ?: 0);
+            }
+            if ($nummer <= 0) {
+                $r = $pdo->query("SELECT nummer FROM startnummern WHERE status = 'frei' ORDER BY nummer ASC LIMIT 1 FOR UPDATE");
+                $nummer = (int)($r->fetchColumn() ?: 0);
+            }
+        }
+
+        // @doc-note Beim Wechsel wird die alte Nummer des Teilnehmers zuerst freigegeben.
+        if ($nummer > 0 && $existing > 0 && $existing !== $nummer) {
+            $free = $pdo->prepare("UPDATE startnummern SET status = 'frei', reserviert_fuer = NULL, team_id = NULL, teilnehmer_id = NULL WHERE nummer = ? AND teilnehmer_id = ?");
+            $free->execute([$existing, $teilnehmer_id]);
+        }
+
+        // @doc-note Zielnummer nur schreiben, wenn sie nicht bereits konsistent diesem Teilnehmer zugeordnet ist.
+        $alreadyAssigned = is_array($target)
+            && (string)($target['status'] ?? '') === 'vergeben'
+            && (int)($target['teilnehmer_id'] ?? 0) === $teilnehmer_id
+            && $existing === $nummer;
+
+        if ($nummer > 0 && !$alreadyAssigned) {
+            $pdo->prepare("INSERT IGNORE INTO startnummern (nummer, status) VALUES (?, 'frei')")->execute([$nummer]);
+            $updS = $pdo->prepare("UPDATE startnummern SET status = 'vergeben', teilnehmer_id = ?, reserviert_fuer = NULL, team_id = NULL WHERE nummer = ? AND (status IN ('frei', 'reserviert') OR teilnehmer_id = ?)");
+            $updS->execute([$teilnehmer_id, $nummer, $teilnehmer_id]);
+            if ($updS->rowCount() === 0) {
+                throw new RuntimeException('Startnummer ' . $nummer . ' ist nicht verfuegbar.');
+            }
+            $updT = $pdo->prepare("UPDATE teilnehmer SET startnummer = ? WHERE id = ?");
+            $updT->execute([$nummer, $teilnehmer_id]);
+        }
+
+        if ($markPaid) {
+            $updP = $pdo->prepare('UPDATE teilnehmer SET bezahlt = 1, bezahlt_am = COALESCE(bezahlt_am, NOW()) WHERE id = ?');
+            $updP->execute([$teilnehmer_id]);
+        }
+
+        if ($ownTransaction) {
+            $pdo->commit();
+        }
+
+        return $nummer > 0 ? $nummer : null;
+    } catch (Throwable $e) {
+        if ($ownTransaction && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
 }
 
 // @doc-section auth-http-logout
 // @doc-purpose Verhindert nach einem expliziten Logout, dass ein vorhandener HTTP-Auth-Header sofort wieder als Anmeldung gewertet wird.
+/**
+ * @doc-function live_app.includes.functions.auth_http_logout_cookie_name
+ * @doc-purpose Liefert den Namen des Cookies, das ein HTTP-Auth-Logout markiert.
+ * @doc-return string Cookie-Name.
+ *
+ * @return string Cookie-Name.
+ */
 function auth_http_logout_cookie_name(): string
 {
     return 'admin_http_logout';
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_cookie_is_secure
+ * @doc-purpose Erkennt, ob die aktuelle Verbindung ueber HTTPS laeuft.
+ * @doc-return bool True, wenn das Cookie als secure gesetzt werden soll.
+ *
+ * @return bool True, wenn die Verbindung HTTPS nutzt.
+ */
 function auth_cookie_is_secure(): bool
 {
     return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
@@ -947,6 +1433,14 @@ function auth_cookie_is_secure(): bool
         || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_mark_http_logout
+ * @doc-purpose Setzt ein Cookie, das einen expliziten HTTP-Auth-Logout markiert.
+ * @doc-return void
+ * @doc-note Das Cookie ist HttpOnly, SameSite=Strict und bei HTTPS secure.
+ *
+ * @return void
+ */
 function auth_mark_http_logout(): void
 {
     setcookie(auth_http_logout_cookie_name(), '1', [
@@ -959,6 +1453,13 @@ function auth_mark_http_logout(): void
     $_COOKIE[auth_http_logout_cookie_name()] = '1';
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_clear_http_logout
+ * @doc-purpose Entfernt das HTTP-Auth-Logout-Cookie.
+ * @doc-return void
+ *
+ * @return void
+ */
 function auth_clear_http_logout(): void
 {
     setcookie(auth_http_logout_cookie_name(), '', [
@@ -971,6 +1472,13 @@ function auth_clear_http_logout(): void
     unset($_COOKIE[auth_http_logout_cookie_name()]);
 }
 
+/**
+ * @doc-function live_app.includes.functions.auth_http_logout_requested
+ * @doc-purpose Prueft, ob ein HTTP-Auth-Logout angefordert wurde.
+ * @doc-return bool True, wenn das Logout-Cookie gesetzt ist.
+ *
+ * @return bool True, wenn das Logout-Cookie gesetzt ist.
+ */
 function auth_http_logout_requested(): bool
 {
     return isset($_COOKIE[auth_http_logout_cookie_name()]) && $_COOKIE[auth_http_logout_cookie_name()] === '1';
@@ -978,6 +1486,13 @@ function auth_http_logout_requested(): bool
 
 // @doc-section json-live-data
 // @doc-purpose Liest die externe Schwimm-JSON ein und bereitet daraus Kennzahlen fuer Dashboard- und Kioskansichten auf.
+/**
+ * @doc-function live_app.includes.functions.json_live_default_file_path
+ * @doc-purpose Ermittelt den Pfad zur Schwimm-JSON, bevorzugt aus Umgebung, sonst aus dem Projekt.
+ * @doc-return string Aufgeloester JSON-Dateipfad.
+ *
+ * @return string Aufgeloester JSON-Dateipfad.
+ */
 function json_live_default_file_path(): string
 {
     $candidates = [];
@@ -1000,19 +1515,78 @@ function json_live_default_file_path(): string
     return $candidates[0] ?? ($projectRoot . DIRECTORY_SEPARATOR . '24hschwimmen.json');
 }
 
+/**
+ * @doc-function live_app.includes.functions.sqlite_live_default_file_path
+ * @doc-purpose Liefert den Standardpfad der SQLite-Live-Datenbank.
+ * @doc-return string Absoluter Pfad zur data.sqlite.
+ *
+ * @return string Absoluter Pfad zur data.sqlite.
+ */
 function sqlite_live_default_file_path(): string
 {
     return dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'data.sqlite';
 }
 
 /**
- * @return array{mode:string,path:string}
+ * Oeffnet die SQLite-Live-Datenbank ueber eine zentrale Factory.
+ *
+ * @doc-function sqlite_live_open
+ * @doc-purpose Stellt die einzige zentrale Verbindungs-Initialisierung fuer die SQLite-Live-Datenbank bereit.
+ * @doc-param string|null $sqlitePath Optionaler Pfad; ohne Angabe wird ueber sqlite_live_default_file_path() aufgeloest.
+ * @doc-param bool $readOnly Kennzeichnet eine reine Leseverbindung (Datei muss dann bereits existieren).
+ * @doc-return PDO Konfigurierte SQLite-Verbindung.
+ * @doc-throws RuntimeException Wenn im Read-Only-Modus die Datei fehlt.
+ * @doc-note PRAGMA busy_timeout wird immer gesetzt; journal_mode/synchronous werden defensiv abgefangen,
+ *           da Read-Only-Dateisysteme oder exotische Mounts sie ablehnen koennen.
+ */
+function sqlite_live_open(?string $sqlitePath = null, bool $readOnly = false): PDO
+{
+    $path = ($sqlitePath !== null && trim($sqlitePath) !== '') ? $sqlitePath : sqlite_live_default_file_path();
+
+    if ($readOnly && !is_file($path)) {
+        throw new RuntimeException('SQLite-Datei nicht gefunden.');
+    }
+
+    $sqlite = new PDO('sqlite:' . $path);
+    $sqlite->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $sqlite->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+
+    // @doc-note busy_timeout verhindert SQLITE_BUSY bei parallelen Schreibzugriffen und muss immer gesetzt werden.
+    $sqlite->exec('PRAGMA busy_timeout = 5000;');
+    try {
+        $sqlite->exec('PRAGMA journal_mode = WAL;');
+        $sqlite->exec('PRAGMA synchronous = NORMAL;');
+    } catch (PDOException $e) {
+        // @doc-note Read-Only-Dateisysteme oder exotische Mounts lehnen WAL/synchronous ab; unkritisch.
+    }
+
+    return $sqlite;
+}
+
+/**
+ * @doc-function live_app.includes.functions.live_data_source_resolve
+ * @doc-purpose Bestimmt die aktive Live-Datenquelle und ihren Pfad.
+ * @doc-return array{mode:string,path:string} Aktive Datenquelle mit Modus und Pfad.
+ * @doc-note Liefert derzeit immer den SQLite-Modus.
+ *
+ * @return array{mode:string,path:string} Aktive Datenquelle mit Modus und Pfad.
  */
 function live_data_source_resolve(): array
 {
     return ['mode' => 'sqlite', 'path' => sqlite_live_default_file_path()];
 }
 
+/**
+ * @doc-function live_app.includes.functions.json_live_read_payload
+ * @doc-purpose Liest und dekodiert die Schwimm-JSON-Datei mit klarer Fehlerbehandlung.
+ * @doc-param string $jsonPath Pfad zur JSON-Datei.
+ * @doc-return array Dekodierter JSON-Inhalt.
+ * @doc-throws RuntimeException Wenn die Datei fehlt, leer oder ungueltig ist.
+ *
+ * @param string $jsonPath Pfad zur JSON-Datei.
+ * @return array Dekodierter JSON-Inhalt.
+ * @throws RuntimeException Wenn die Datei fehlt, leer oder ungueltig ist.
+ */
 function json_live_read_payload(string $jsonPath): array
 {
     if (!is_file($jsonPath)) {
@@ -1032,6 +1606,15 @@ function json_live_read_payload(string $jsonPath): array
     return $decoded;
 }
 
+/**
+ * @doc-function live_app.includes.functions.sqlite_live_decode_parameter
+ * @doc-purpose Normalisiert den Parameterwert einer Action zu einer Werteliste.
+ * @doc-param mixed $rawValue Rohwert (Array, JSON-String oder CSV-String).
+ * @doc-return array Liste der dekodierten Parameterwerte.
+ *
+ * @param mixed $rawValue Rohwert (Array, JSON-String oder CSV-String).
+ * @return array Liste der dekodierten Parameterwerte.
+ */
 function sqlite_live_decode_parameter($rawValue): array
 {
     if (is_array($rawValue)) {
@@ -1059,15 +1642,19 @@ function sqlite_live_decode_parameter($rawValue): array
     return $values;
 }
 
+/**
+ * @doc-function live_app.includes.functions.sqlite_live_read_payload
+ * @doc-purpose Liest Schwimmer und Actions aus der SQLite-Live-Datenbank und bereitet sie JSON-aehnlich auf.
+ * @doc-param string $sqlitePath Pfad zur SQLite-Datei.
+ * @doc-return array Payload mit 'alleSchwimmer', 'actions' und 'statMessages'.
+ *
+ * @param string $sqlitePath Pfad zur SQLite-Datei.
+ * @return array Payload mit 'alleSchwimmer', 'actions' und 'statMessages'.
+ */
 function sqlite_live_read_payload(string $sqlitePath): array
 {
-    if (!is_file($sqlitePath)) {
-        throw new RuntimeException('SQLite-Datei nicht gefunden.');
-    }
-
-    $sqlite = new PDO('sqlite:' . $sqlitePath);
-    $sqlite->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $sqlite->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    // @doc-note Zentrale Factory statt eigener PDO-Initialisierung (Single Source of Truth).
+    $sqlite = sqlite_live_open($sqlitePath, true);
 
     $swimmers = $sqlite
         ->query('SELECT nummer, vorname, nachname, istKind, gruppe, bahnanzahl, strecke, auf_bahn, aktiv FROM schwimmer ORDER BY nummer ASC')
@@ -1113,6 +1700,15 @@ function sqlite_live_read_payload(string $sqlitePath): array
     ];
 }
 
+/**
+ * @doc-function live_app.includes.functions.json_live_normalize_name
+ * @doc-purpose Bildet einen anzeigbaren Namen aus Vor-, Nachname oder Nummer.
+ * @doc-param array $row Rohe Schwimmerdaten.
+ * @doc-return string Anzeigename oder Fallback wie 'Schwimmer <Nummer>' bzw. 'Unbekannt'.
+ *
+ * @param array $row Rohe Schwimmerdaten.
+ * @return string Anzeigename oder Fallback wie 'Schwimmer <Nummer>' bzw. 'Unbekannt'.
+ */
 function json_live_normalize_name(array $row): string
 {
     $first = trim((string)($row['vorname'] ?? ''));
@@ -1126,6 +1722,15 @@ function json_live_normalize_name(array $row): string
     return $nummer !== '' ? ('Schwimmer ' . $nummer) : 'Unbekannt';
 }
 
+/**
+ * @doc-function live_app.includes.functions.json_live_normalize_swimmer_map
+ * @doc-purpose Vereinheitlicht die unterschiedlichen Schwimmerquellen der JSON zu einer Map nach Nummer.
+ * @doc-param array $payload Roh-Payload der Schwimm-JSON.
+ * @doc-return array Nach Schwimmernummer sortierte, normalisierte Schwimmerdaten.
+ *
+ * @param array $payload Roh-Payload der Schwimm-JSON.
+ * @return array Nach Schwimmernummer sortierte, normalisierte Schwimmerdaten.
+ */
 function json_live_normalize_swimmer_map(array $payload): array
 {
     $normalized = [];
@@ -1190,6 +1795,15 @@ function json_live_normalize_swimmer_map(array $payload): array
     return $normalized;
 }
 
+/**
+ * @doc-function live_app.includes.functions.json_live_action_timestamp
+ * @doc-purpose Ermittelt den Zeitstempel einer Action aus verschiedenen moeglichen Feldern.
+ * @doc-param array $action Action-Datensatz.
+ * @doc-return int|null Unix-Zeitstempel oder null, wenn keiner ermittelbar ist.
+ *
+ * @param array $action Action-Datensatz.
+ * @return int|null Unix-Zeitstempel oder null, wenn keiner ermittelbar ist.
+ */
 function json_live_action_timestamp(array $action): ?int
 {
     $keys = ['timestamp', 'created_at', 'createdAt', 'time', 'datetime', 'date'];
@@ -1215,12 +1829,30 @@ function json_live_action_timestamp(array $action): ?int
     return null;
 }
 
+/**
+ * @doc-function live_app.includes.functions.json_live_action_command
+ * @doc-purpose Liest das Kommando einer Action in Normalform (Grossbuchstaben).
+ * @doc-param array $action Action-Datensatz.
+ * @doc-return string Kommando in Grossbuchstaben oder leerer String.
+ *
+ * @param array $action Action-Datensatz.
+ * @return string Kommando in Grossbuchstaben oder leerer String.
+ */
 function json_live_action_command(array $action): string
 {
     $command = $action['command'] ?? $action['kommando'] ?? $action['aktion'] ?? '';
     return strtoupper(trim((string)$command));
 }
 
+/**
+ * @doc-function live_app.includes.functions.json_live_prepare_actions
+ * @doc-purpose Reichert Actions um Kommando und Zeitstempel an und sortiert sie chronologisch.
+ * @doc-param array $payload Roh-Payload der Schwimm-JSON.
+ * @doc-return array Sortierte Actions mit internen Feldern '_command' und '_timestamp'.
+ *
+ * @param array $payload Roh-Payload der Schwimm-JSON.
+ * @return array Sortierte Actions mit internen Feldern '_command' und '_timestamp'.
+ */
 function json_live_prepare_actions(array $payload): array
 {
     $rawActions = $payload['actions'] ?? [];
@@ -1250,9 +1882,15 @@ function json_live_prepare_actions(array $payload): array
 }
 
 /**
- * @param array<int, array<string, mixed>> $swimmerMap
- * @param list<array<string, mixed>> $actions
- * @return array<int, array<string, mixed>>
+ * @doc-function live_app.includes.functions.json_live_apply_action_stats
+ * @doc-purpose Aggregiert Bahnen und Aktivstatus aus den Actions in die Schwimmerkarte.
+ * @doc-param array<int, array<string, mixed>> $swimmerMap Schwimmerdaten nach Nummer.
+ * @doc-param list<array<string, mixed>> $actions Vorbereitete Action-Datensaetze.
+ * @doc-return array<int, array<string, mixed>> Aktualisierte Schwimmerkarte inkl. Actions ohne Stammdaten.
+ *
+ * @param array<int, array<string, mixed>> $swimmerMap Schwimmerdaten nach Nummer.
+ * @param list<array<string, mixed>> $actions Vorbereitete Action-Datensaetze.
+ * @return array<int, array<string, mixed>> Aktualisierte Schwimmerkarte inkl. Actions ohne Stammdaten.
  */
 function json_live_apply_action_stats(array $swimmerMap, array $actions): array
 {
@@ -1344,6 +1982,17 @@ function json_live_apply_action_stats(array $swimmerMap, array $actions): array
     return $swimmerMap;
 }
 
+/**
+ * @doc-function live_app.includes.functions.json_live_load_lane_timeframes
+ * @doc-purpose Wertet aktive Zeitfenster aus und zaehlt die darin enthaltenen ADD-Ereignisse.
+ * @doc-param PDO $pdo Verbindung zur Verwaltungsdatenbank.
+ * @doc-param array $actions Vorbereitete Action-Datensaetze.
+ * @doc-return array Liste der Zeitfenster mit Bahnen und eindeutigen Schwimmern.
+ *
+ * @param PDO $pdo Verbindung zur Verwaltungsdatenbank.
+ * @param array $actions Vorbereitete Action-Datensaetze.
+ * @return array Liste der Zeitfenster mit Bahnen und eindeutigen Schwimmern.
+ */
 function json_live_load_lane_timeframes(PDO $pdo, array $actions): array
 {
     $rows = [];
@@ -1391,6 +2040,21 @@ function json_live_load_lane_timeframes(PDO $pdo, array $actions): array
     return $items;
 }
 
+/**
+ * @doc-function live_app.includes.functions.json_live_build_overview
+ * @doc-purpose Berechnet aus dem Live-Payload das vollstaendige Uebersichtsmodell fuer Dashboard und Kiosk.
+ * @doc-param array $payload Roh-Payload der Live-Daten.
+ * @doc-param PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.
+ * @doc-param string $sourceMode Kennzeichnet die Datenquelle ('json' oder 'sqlite').
+ * @doc-param string|null $sourcePath Pfad der Datenquelle fuer Metadaten.
+ * @doc-return array Vollstaendiges Uebersichtsobjekt inkl. Totals, Toplisten und Highlights.
+ *
+ * @param array $payload Roh-Payload der Live-Daten.
+ * @param PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.
+ * @param string $sourceMode Kennzeichnet die Datenquelle ('json' oder 'sqlite').
+ * @param string|null $sourcePath Pfad der Datenquelle fuer Metadaten.
+ * @return array Vollstaendiges Uebersichtsobjekt inkl. Totals, Toplisten und Highlights.
+ */
 function json_live_build_overview(array $payload, ?PDO $pdo = null, string $sourceMode = 'json', ?string $sourcePath = null): array
 {
     $poolLengthM = 100;
@@ -1679,6 +2343,19 @@ function json_live_build_overview(array $payload, ?PDO $pdo = null, string $sour
     ];
 }
 
+/**
+ * @doc-function live_app.includes.functions.live_overview_error_payload
+ * @doc-purpose Erzeugt ein leeres Uebersichtsmodell mit Fehlermeldung im selben Schema.
+ * @doc-param string $sourceMode Kennzeichnet die Datenquelle.
+ * @doc-param string $sourcePath Pfad der Datenquelle.
+ * @doc-param string $message Fehlermeldung.
+ * @doc-return array Leeres Uebersichtsobjekt mit 'ok'=false und 'error'.
+ *
+ * @param string $sourceMode Kennzeichnet die Datenquelle.
+ * @param string $sourcePath Pfad der Datenquelle.
+ * @param string $message Fehlermeldung.
+ * @return array Leeres Uebersichtsobjekt mit 'ok'=false und 'error'.
+ */
 function live_overview_error_payload(string $sourceMode, string $sourcePath, string $message): array
 {
     return [
@@ -1740,6 +2417,17 @@ function live_overview_error_payload(string $sourceMode, string $sourcePath, str
     ];
 }
 
+/**
+ * @doc-function live_app.includes.functions.json_live_load_overview
+ * @doc-purpose Laedt und berechnet die Uebersicht aus einer JSON-Datei mit Fehlerfallback.
+ * @doc-param string $jsonPath Pfad zur JSON-Datei.
+ * @doc-param PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.
+ * @doc-return array Uebersichtsmodell oder Fehlerpayload.
+ *
+ * @param string $jsonPath Pfad zur JSON-Datei.
+ * @param PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.
+ * @return array Uebersichtsmodell oder Fehlerpayload.
+ */
 function json_live_load_overview(string $jsonPath, ?PDO $pdo = null): array
 {
     try {
@@ -1750,6 +2438,17 @@ function json_live_load_overview(string $jsonPath, ?PDO $pdo = null): array
     }
 }
 
+/**
+ * @doc-function live_app.includes.functions.sqlite_live_load_overview
+ * @doc-purpose Laedt und berechnet die Uebersicht aus der SQLite-Datenbank mit Fehlerfallback.
+ * @doc-param string $sqlitePath Pfad zur SQLite-Datei.
+ * @doc-param PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.
+ * @doc-return array Uebersichtsmodell oder Fehlerpayload.
+ *
+ * @param string $sqlitePath Pfad zur SQLite-Datei.
+ * @param PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.
+ * @return array Uebersichtsmodell oder Fehlerpayload.
+ */
 function sqlite_live_load_overview(string $sqlitePath, ?PDO $pdo = null): array
 {
     try {
@@ -1760,6 +2459,15 @@ function sqlite_live_load_overview(string $sqlitePath, ?PDO $pdo = null): array
     }
 }
 
+/**
+ * @doc-function live_app.includes.functions.live_load_overview
+ * @doc-purpose Laedt die Uebersicht anhand der aufgeloesten Live-Datenquelle.
+ * @doc-param PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.
+ * @doc-return array Uebersichtsmodell oder Fehlerpayload.
+ *
+ * @param PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.
+ * @return array Uebersichtsmodell oder Fehlerpayload.
+ */
 function live_load_overview(?PDO $pdo = null): array
 {
     $source = live_data_source_resolve();
@@ -1770,6 +2478,15 @@ function live_load_overview(?PDO $pdo = null): array
     return json_live_load_overview((string)($source['path'] ?? ''), $pdo);
 }
 
+/**
+ * @doc-function live_app.includes.functions.event_live_load_overview
+ * @doc-purpose Laedt die Veranstaltungs-Uebersicht ueber die allgemeine Live-Quelle.
+ * @doc-param PDO $pdo Verbindung fuer Zeitfenster-Statistiken.
+ * @doc-return array Uebersichtsmodell oder Fehlerpayload.
+ *
+ * @param PDO $pdo Verbindung fuer Zeitfenster-Statistiken.
+ * @return array Uebersichtsmodell oder Fehlerpayload.
+ */
 function event_live_load_overview(PDO $pdo): array
 {
     return live_load_overview($pdo);
@@ -1777,16 +2494,46 @@ function event_live_load_overview(PDO $pdo): array
 
 // @doc-section webauthn
 // @doc-purpose Implementiert die biometrische Anmeldung per WebAuthn (Fingerabdruck/Gesicht).
+/**
+ * @doc-function live_app.includes.functions.webauthn_base64url_encode
+ * @doc-purpose Kodiert Binaerdaten Base64-URL-konform ohne Auffuellzeichen.
+ * @doc-param string $data Rohdaten.
+ * @doc-return string Base64-URL-kodierter String.
+ *
+ * @param string $data Rohdaten.
+ * @return string Base64-URL-kodierter String.
+ */
 function webauthn_base64url_encode(string $data): string
 {
     return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
 }
 
+/**
+ * @doc-function live_app.includes.functions.webauthn_base64url_decode
+ * @doc-purpose Dekodiert einen Base64-URL-String zurueck in Binaerdaten.
+ * @doc-param string $data Base64-URL-kodierter String.
+ * @doc-return string Dekodierte Rohdaten.
+ *
+ * @param string $data Base64-URL-kodierter String.
+ * @return string Dekodierte Rohdaten.
+ */
 function webauthn_base64url_decode(string $data): string
 {
     return base64_decode(strtr($data, '-_', '+/'));
 }
 
+/**
+ * @doc-function live_app.includes.functions.webauthn_cbor_decode
+ * @doc-purpose Dekodiert einen CBOR-Wert ab der aktuellen Offset-Position fuer WebAuthn-Daten.
+ * @doc-param string $data CBOR-kodierte Rohdaten.
+ * @doc-param int &$offset Leseposition, wird beim Dekodieren fortgeschrieben.
+ * @doc-return mixed Dekodierter Wert (int, string, array oder map) oder null bei ungueltigen Daten.
+ * @doc-note Der Offset wird als Referenz uebergeben und waehrend der Rekursion aktualisiert.
+ *
+ * @param string $data CBOR-kodierte Rohdaten.
+ * @param int &$offset Leseposition, wird beim Dekodieren fortgeschrieben.
+ * @return mixed Dekodierter Wert (int, string, array oder map) oder null bei ungueltigen Daten.
+ */
 function webauthn_cbor_decode(string $data, int &$offset = 0)
 {
     if ($offset >= strlen($data)) {
@@ -1838,6 +2585,15 @@ function webauthn_cbor_decode(string $data, int &$offset = 0)
     }
 }
 
+/**
+ * @doc-function live_app.includes.functions.webauthn_cose_public_key_to_pem
+ * @doc-purpose Wandelt einen COSE-EC2-Schluessel in ein PEM-Format fuer openssl_verify um.
+ * @doc-param array $coseKey Dekodierter COSE-Schluessel.
+ * @doc-return string|null PEM-Public-Key oder null bei nicht unterstuetztem Schluesseltyp.
+ *
+ * @param array $coseKey Dekodierter COSE-Schluessel.
+ * @return string|null PEM-Public-Key oder null bei nicht unterstuetztem Schluesseltyp.
+ */
 function webauthn_cose_public_key_to_pem(array $coseKey): ?string
 {
     $kty = $coseKey[1] ?? null;
@@ -1854,11 +2610,25 @@ function webauthn_cose_public_key_to_pem(array $coseKey): ?string
     return $pem;
 }
 
+/**
+ * @doc-function live_app.includes.functions.webauthn_generate_challenge
+ * @doc-purpose Erzeugt eine zufaellige WebAuthn-Challenge.
+ * @doc-return string Hex-kodierte Challenge.
+ *
+ * @return string Hex-kodierte Challenge.
+ */
 function webauthn_generate_challenge(): string
 {
     return bin2hex(random_bytes(32));
 }
 
+/**
+ * @doc-function live_app.includes.functions.webauthn_rp_id
+ * @doc-purpose Ermittelt die Relying-Party-ID aus dem aktuellen Host.
+ * @doc-return string Hostname ohne Port (Standard 'localhost').
+ *
+ * @return string Hostname ohne Port (Standard 'localhost').
+ */
 function webauthn_rp_id(): string
 {
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
@@ -1866,6 +2636,19 @@ function webauthn_rp_id(): string
     return $host;
 }
 
+/**
+ * @doc-function live_app.includes.functions.webauthn_verify_registration
+ * @doc-purpose Verifiziert die WebAuthn-Registrierung und extrahiert Credential-ID und Public Key.
+ * @doc-param string $clientDataJSON ClientData als JSON.
+ * @doc-param string $attestationObject CBOR-kodiertes Attestation-Objekt.
+ * @doc-param string $expectedChallenge Erwartete Challenge.
+ * @doc-return array|null Daten mit 'credential_id' und 'public_key' oder null bei Prueffehler.
+ *
+ * @param string $clientDataJSON ClientData als JSON.
+ * @param string $attestationObject CBOR-kodiertes Attestation-Objekt.
+ * @param string $expectedChallenge Erwartete Challenge.
+ * @return array|null Daten mit 'credential_id' und 'public_key' oder null bei Prueffehler.
+ */
 function webauthn_verify_registration(string $clientDataJSON, string $attestationObject, string $expectedChallenge): ?array
 {
     $clientData = json_decode($clientDataJSON, true);
@@ -1912,6 +2695,25 @@ function webauthn_verify_registration(string $clientDataJSON, string $attestatio
     ];
 }
 
+/**
+ * @doc-function live_app.includes.functions.webauthn_verify_authentication
+ * @doc-purpose Verifiziert eine WebAuthn-Anmelde-Assertion per Signaturpruefung.
+ * @doc-param string $credentialIdB64 Base64-URL-kodierte Credential-ID.
+ * @doc-param string $clientDataJSON ClientData als JSON.
+ * @doc-param string $authenticatorData Authenticator-Daten.
+ * @doc-param string $signature Signatur ueber die Assertion.
+ * @doc-param string $publicKeyPem PEM-Public-Key des Credentials.
+ * @doc-param string $expectedChallenge Erwartete Challenge.
+ * @doc-return bool True, wenn die Assertion gueltig ist.
+ *
+ * @param string $credentialIdB64 Base64-URL-kodierte Credential-ID.
+ * @param string $clientDataJSON ClientData als JSON.
+ * @param string $authenticatorData Authenticator-Daten.
+ * @param string $signature Signatur ueber die Assertion.
+ * @param string $publicKeyPem PEM-Public-Key des Credentials.
+ * @param string $expectedChallenge Erwartete Challenge.
+ * @return bool True, wenn die Assertion gueltig ist.
+ */
 function webauthn_verify_authentication(string $credentialIdB64, string $clientDataJSON, string $authenticatorData, string $signature, string $publicKeyPem, string $expectedChallenge): bool
 {
     $clientData = json_decode($clientDataJSON, true);

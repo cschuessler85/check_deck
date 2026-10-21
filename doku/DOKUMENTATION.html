@@ -1,0 +1,2655 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Softwaredokumentation &amp; Bedienungsanleitung</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --text-muted: #475569;
+            --primary: #0284c7;
+            --primary-light: #e0f2fe;
+            --accent: #059669;
+            --accent-light: #d1fae5;
+            --code-bg: #f1f5f9;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .brand h1 { font-size: 1.25rem; font-weight: 700; }
+        .brand span { font-size: 0.8rem; color: var(--text-muted); }
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .search-box {
+            padding: 0.5rem 0.85rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            min-width: 260px;
+            outline: none;
+        }
+        .search-box:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
+        .tab-group { display: flex; background: var(--code-bg); padding: 0.25rem; border-radius: 8px; gap: 0.25rem; }
+        .tab-btn {
+            border: none;
+            background: transparent;
+            padding: 0.45rem 0.9rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+        .tab-btn.active { background: var(--surface); color: var(--primary); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+        .layout {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            flex: 1;
+            max-width: 1440px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        aside {
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 1.25rem;
+            height: calc(100vh - 69px);
+            position: sticky;
+            top: 69px;
+            overflow-y: auto;
+        }
+        .nav-group-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin: 1rem 0 0.5rem;
+            font-weight: 700;
+        }
+        .nav-group-title:first-child { margin-top: 0; }
+        aside ul { list-style: none; }
+        aside li { margin-bottom: 0.25rem; }
+        .nav-link {
+            display: block;
+            padding: 0.35rem 0.6rem;
+            border-radius: 5px;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.85rem;
+            word-break: break-all;
+        }
+        .nav-link:hover { background: var(--code-bg); color: var(--primary); }
+        main { padding: 1.5rem 2rem; max-width: 1000px; }
+        .section-heading {
+            font-size: 1.4rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border);
+        }
+        .doc-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        .card-header { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.15rem 0.55rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .badge-kind { background: var(--primary-light); color: var(--primary); }
+        .badge-flow { background: var(--accent-light); color: var(--accent); }
+        .badge-file { background: var(--code-bg); color: var(--text-muted); font-family: monospace; }
+        .badge-target { background: #fef3c7; color: #b45309; }
+        .doc-card h2 { font-size: 1.25rem; margin-bottom: 0.4rem; word-break: break-all; }
+        .purpose { color: var(--text-muted); margin-bottom: 1rem; font-size: 0.95rem; }
+        .meta-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1.25rem;
+            font-size: 0.9rem;
+        }
+        .meta-table th, .meta-table td {
+            border: 1px solid var(--border);
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            vertical-align: top;
+        }
+        .meta-table th { width: 240px; background: var(--code-bg); font-weight: 600; }
+        .block-group { margin-top: 1.25rem; }
+        .block-group h3 { font-size: 1.05rem; margin-bottom: 0.75rem; color: var(--text); }
+        .sub-block {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .sub-block h4 { font-size: 0.95rem; margin-bottom: 0.5rem; }
+        .detail-list, .code-list, .step-list { padding-left: 1.25rem; font-size: 0.9rem; margin-top: 0.35rem; }
+        .sub-label { font-size: 0.85rem; font-weight: 600; margin-top: 0.6rem; }
+        .note-box {
+            margin-top: 0.6rem;
+            padding: 0.5rem 0.75rem;
+            background: #fffbeb;
+            border-left: 3px solid #f59e0b;
+            font-size: 0.85rem;
+        }
+        .ui-step {
+            border-left: 3px solid var(--accent);
+            background: var(--bg);
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.6rem;
+            border-radius: 0 6px 6px 0;
+        }
+        .step-header { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+        .step-num {
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--accent);
+        }
+        .step-action { font-weight: 600; }
+        .step-result { margin-top: 0.35rem; font-size: 0.9rem; color: var(--text-muted); }
+        code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            background: var(--code-bg);
+            padding: 0.1rem 0.35rem;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+        .hidden { display: none !important; }
+        .empty-state {
+            padding: 2rem;
+            text-align: center;
+            background: var(--surface);
+            border: 1px dashed var(--border);
+            border-radius: 8px;
+            color: var(--text-muted);
+        }
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; }
+            aside { height: auto; position: static; border-right: none; border-bottom: 1px solid var(--border); }
+        }
+        @media print {
+            header, aside { display: none !important; }
+            .layout { display: block; }
+            main { max-width: 100%; padding: 0; }
+            .tab-pane { display: block !important; }
+            .doc-card { break-inside: avoid; box-shadow: none; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <h1>Projektdokumentation</h1>
+            <span>Stand: 21.10.2026 20:25 &bull; 42 Module &bull; 2 Bedienablaeufe</span>
+        </div>
+        <div class="controls">
+            <input type="search" id="search-input" class="search-box" placeholder="Suche nach Modul, Funktion, Button, Text...">
+            <div class="tab-group" id="tab-controls">
+                <button type="button" class="tab-btn active" data-tab="all">Alle anzeigen</button>
+                <button type="button" class="tab-btn" data-tab="manual">Bedienungsanleitung (2)</button>
+                <button type="button" class="tab-btn" data-tab="tech">Softwaredoku (42)</button>
+            </div>
+        </div>
+    </header>
+    <div class="layout">
+        <aside>
+            <div class="nav-group-title">Bedienungsanleitung</div>
+            <ul><li><a href="#flow-docs-interaktive_suche_und_tabs" class="nav-link" data-tab-target="manual">docs.interaktive_suche_und_tabs</a></li><li><a href="#flow-cashier-qr-scan" class="nav-link" data-tab-target="manual">cashier-qr-scan</a></li></ul>
+            <div class="nav-group-title">Module &amp; Dateien</div>
+            <ul><li><a href="#mod-tools-build_docs-0" class="nav-link" data-tab-target="tech">tools.build_docs</a></li><li><a href="#mod-tools-build_docs-1" class="nav-link" data-tab-target="tech">tools.build_docs</a></li><li><a href="#mod-live_app-admin-2" class="nav-link" data-tab-target="tech">live_app.admin</a></li><li><a href="#mod-live_web-assets-app-3" class="nav-link" data-tab-target="tech">live_web.assets.app</a></li><li><a href="#mod-live_web-assets-style-4" class="nav-link" data-tab-target="tech">live_web.assets.style</a></li><li><a href="#mod-live_app-backup-5" class="nav-link" data-tab-target="tech">live_app.backup</a></li><li><a href="#mod-live_app-dashboard-dashboard-6" class="nav-link" data-tab-target="tech">live_app.dashboard.dashboard</a></li><li><a href="#mod-live_app-dashboard-event_live-7" class="nav-link" data-tab-target="tech">live_app.dashboard.event_live</a></li><li><a href="#mod-live_app-dashboard-eventlifkiosk-8" class="nav-link" data-tab-target="tech">live_app.dashboard.eventlifkiosk</a></li><li><a href="#mod-live_app-dashboard-json_live-9" class="nav-link" data-tab-target="tech">live_app.dashboard.json_live</a></li><li><a href="#mod-live_app-diagnose-10" class="nav-link" data-tab-target="tech">live_app.diagnose</a></li><li><a href="#mod-live_app-export-11" class="nav-link" data-tab-target="tech">live_app.export</a></li><li><a href="#mod-live_app-impressum-12" class="nav-link" data-tab-target="tech">live_app.impressum</a></li><li><a href="#mod-live_app-includes-admin_audit_endpoints-13" class="nav-link" data-tab-target="tech">live_app.includes.admin_audit_endpoints</a></li><li><a href="#mod-live_app-includes-db_connect-14" class="nav-link" data-tab-target="tech">live_app.includes.db_connect</a></li><li><a href="#mod-live_app-includes-functions-15" class="nav-link" data-tab-target="tech">live_app.includes.functions</a></li><li><a href="#mod-live_app-index-16" class="nav-link" data-tab-target="tech">live_app.index</a></li><li><a href="#mod-live_app-numbers-17" class="nav-link" data-tab-target="tech">live_app.numbers</a></li><li><a href="#mod-live_app-scripts-analyze_event_sqlite-18" class="nav-link" data-tab-target="tech">live_app.scripts.analyze_event_sqlite</a></li><li><a href="#mod-live_app-scripts-backup-19" class="nav-link" data-tab-target="tech">live_app.scripts.backup</a></li><li><a href="#mod-live_app-scripts-create_admin-20" class="nav-link" data-tab-target="tech">live_app.scripts.create_admin</a></li><li><a href="#mod-live_app-scripts-diagnose-21" class="nav-link" data-tab-target="tech">live_app.scripts.diagnose</a></li><li><a href="#mod-live_app-scripts-merge_schwimmerdaten-22" class="nav-link" data-tab-target="tech">live_app.scripts.merge_schwimmerdaten</a></li><li><a href="#mod-live_app-scripts-migrate-23" class="nav-link" data-tab-target="tech">live_app.scripts.migrate</a></li><li><a href="#mod-live_app-scripts-privacy_cleanup-24" class="nav-link" data-tab-target="tech">live_app.scripts.privacy_cleanup</a></li><li><a href="#mod-live_app-seed_test_data-25" class="nav-link" data-tab-target="tech">live_app.seed_test_data</a></li><li><a href="#mod-live_app-sync-26" class="nav-link" data-tab-target="tech">live_app.sync</a></li><li><a href="#mod-live_app-timeframes-27" class="nav-link" data-tab-target="tech">live_app.timeframes</a></li><li><a href="#mod-live_web-bootstrap-28" class="nav-link" data-tab-target="tech">live_web.bootstrap</a></li><li><a href="#mod-live_web-admin-29" class="nav-link" data-tab-target="tech">live_web.admin</a></li><li><a href="#mod-live_web-assets-app-30" class="nav-link" data-tab-target="tech">live_web.assets.app</a></li><li><a href="#mod-live_web-assets-style-31" class="nav-link" data-tab-target="tech">live_web.assets.style</a></li><li><a href="#mod-live_web-dashboard-dashboard-32" class="nav-link" data-tab-target="tech">live_web.dashboard.dashboard</a></li><li><a href="#mod-live_web-dashboard-eventlifkiosk-33" class="nav-link" data-tab-target="tech">live_web.dashboard.eventlifkiosk</a></li><li><a href="#mod-live_web-dashboard-json_live-34" class="nav-link" data-tab-target="tech">live_web.dashboard.json_live</a></li><li><a href="#mod-live_web-eventlifkiosk-35" class="nav-link" data-tab-target="tech">live_web.eventlifkiosk</a></li><li><a href="#mod-live_web-export-36" class="nav-link" data-tab-target="tech">live_web.export</a></li><li><a href="#mod-live_web-impressum-37" class="nav-link" data-tab-target="tech">live_web.impressum</a></li><li><a href="#mod-live_web-index-38" class="nav-link" data-tab-target="tech">live_web.index</a></li><li><a href="#mod-live_web-numbers-39" class="nav-link" data-tab-target="tech">live_web.numbers</a></li><li><a href="#mod-live_web-sync-40" class="nav-link" data-tab-target="tech">live_web.sync</a></li><li><a href="#mod-live_web-timeframes-41" class="nav-link" data-tab-target="tech">live_web.timeframes</a></li></ul>
+        </aside>
+        <main>
+            <section id="pane-manual" class="tab-pane">
+                <h2 class="section-heading">Bedienungsanleitung (Click-to-Click)</h2>
+                
+                <article class="doc-card searchable" id="flow-docs-interaktive_suche_und_tabs">
+                    <div class="card-header">
+                        <span class="badge badge-flow">Click-to-Click Flow</span>
+                        <span class="badge badge-file">tools.build_docs</span>
+                    </div>
+                    <h2>docs.interaktive_suche_und_tabs</h2>
+                    <p class="purpose">Steuert Volltextsuche und Tab-Filterung im generierten Offline-HTML-Handbuch.</p>
+                    <div class="steps-container">
+                        
+                        <div class="ui-step">
+                            <div class="step-header">
+                                <span class="step-num">Schritt 1</span>
+                                <span class="step-action">1 Suchbegriff im Suchfeld eingeben</span>
+                                <span class="badge badge-target">Ziel: <code>#search-input</code></span>
+                            </div>
+                            <div class="step-result">&rarr; <strong>Ergebnis:</strong> Nur passende Module und Click-to-Click-Anleitungen bleiben sichtbar</div>
+                        </div>
+                        
+                        <div class="ui-step">
+                            <div class="step-header">
+                                <span class="step-num">Schritt 2</span>
+                                <span class="step-action">2 Ansicht ueber die Tab-Buttons wechseln</span>
+                                <span class="badge badge-target">Ziel: <code>#tab-controls</code></span>
+                            </div>
+                            <div class="step-result">&rarr; <strong>Ergebnis:</strong> Schaltet zwischen Gesamtschau, Bedienungsanleitung und Softwaredoku um</div>
+                        </div>
+                        
+                    </div>
+                </article>
+                
+                <article class="doc-card searchable" id="flow-cashier-qr-scan">
+                    <div class="card-header">
+                        <span class="badge badge-flow">Click-to-Click Flow</span>
+                        <span class="badge badge-file">live_app.admin</span>
+                    </div>
+                    <h2>cashier-qr-scan</h2>
+                    
+                    <div class="steps-container">
+                        
+                        <div class="ui-step">
+                            <div class="step-header">
+                                <span class="step-num">Schritt 1</span>
+                                <span class="step-action">1 Kassenpersonal startet den QR-Scanner.</span>
+                                
+                            </div>
+                            <div class="step-result">&rarr; <strong>Ergebnis:</strong> Der Bezahlvorgang kann direkt aus einem Scan heraus fortgesetzt werden.</div>
+                        </div>
+                        
+                        <div class="ui-step">
+                            <div class="step-header">
+                                <span class="step-num">Schritt 2</span>
+                                <span class="step-action">2 Ein erkannter Code wird normalisiert, gesucht und bei gueltigem Treffer in den Zahlungsdialog uebernommen.</span>
+                                
+                            </div>
+                            
+                        </div>
+                        
+                    </div>
+                </article>
+                
+            </section>
+            <section id="pane-tech" class="tab-pane">
+                <h2 class="section-heading">Technische Softwaredokumentation</h2>
+                
+            <article class="doc-card searchable" id="mod-tools-build_docs-0">
+                <div class="card-header">
+                    <span class="badge badge-kind">cli-script</span>
+                    <span class="badge badge-file">docs.py</span>
+                </div>
+                <h2>tools.build_docs</h2>
+                <p class="purpose">Extrahiert @doc-Marker aus dem Quellcode und erzeugt eine vollstaendige, offline-faehige Single-File-HTML-Dokumentation mit Suchfunktion.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>CLI-Aufruf ueber Python (python build_docs.py [projekt_pfad] [ausgabe_datei.html])</td></tr><tr><th>Eingaben (@doc-input)</th><td>Quellcodedateien (.php, .js, .py, .css, .html) mit @doc-Kommentarbloecken</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Alleinlaufaehige HTML-Datei (Standard: DOKUMENTATION.html) mit Bedienungsanleitung und Softwaredoku</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest Projektdateien rekursiv und schreibt eine HTML-Datei ins Dateisystem</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>config</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Definiert Ausschlussregeln, erlaubte Dateiendungen und Listen-Marker gemaess Standard.</li></ul>
+                    
+                </div>
+                </div>
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>tools.build_docs.is_excluded</code></h4>
+                    <p>Prueft, ob eine Datei laut Kommentarstandard von der Extraktion ausgeschlossen ist.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>Path file_path Zu pruefender Dateipfad.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True bei Ausschluss (z. B. vendor, *.min.js oder nicht unterstuetzte Dateiendung).</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>tools.build_docs.extract_doc_blocks</code></h4>
+                    <p>Liest eine Quellcodedatei und fasst zusammenhaengende @doc-Zeilen zu Doku-Objekten zusammen.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>Path file_path Pfad zur Quellcodedatei.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>list Liste der extrahierten Doku-Bloecke als Dictionaries.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>tools.build_docs.parse_project</code></h4>
+                    <p>Durchsucht das Projektverzeichnis rekursiv und gruppiert Doku-Bloecke nach Modulen.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>Path root_dir Wurzelverzeichnis des zu dokumentierenden Projekts.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>list Strukturierte Liste aller gefundenen Module samt Sektionen, Funktionen und UI-Flows.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>tools.build_docs.esc</code></h4>
+                    <p>Maskiert HTML-Sonderzeichen fuer eine sichere Darstellung im Browser.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>Any text Eingabewert.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>str HTML-maskierter String.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>tools.build_docs.render_html</code></h4>
+                    <p>Baut aus den geparsten Modulen ein einzelnes, selbststaendiges HTML5-Dokument mit Live-Suche und Tab-Navigation.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>list modules Liste der geparsten Modul-Dictionaries.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>str Vollstaendiger HTML-Code als String.</code></div>
+                    
+                    
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-tools-build_docs-1">
+                <div class="card-header">
+                    <span class="badge badge-kind">cli-script</span>
+                    <span class="badge badge-file">gem.py</span>
+                </div>
+                <h2>tools.build_docs</h2>
+                <p class="purpose">Neuen Teilnehmer ueber die Schnellmaske erfassen.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>CLI-Aufruf ueber Python (python build_docs.py &lt;projekt_pfad&gt;)</td></tr><tr><th>Eingaben (@doc-input)</th><td>Quellcodedateien im Projektverzeichnis mit @doc-Kommentarbloecken</td></tr><tr><th>Ausgaben (@doc-output)</th><td>SOFTWARE-DOKU.md und BEDIENUNGSANLEITUNG.md</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest Projektdateien rekursiv und schreibt zwei Markdown-Dateien ins Arbeitsverzeichnis</td></tr></tbody></table>
+                
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>tools.build_docs.is_excluded</code></h4>
+                    <p>Prueft, ob eine Datei gemaess Kommentarstandard ignoriert werden muss.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>Path file_path Zu pruefender Dateipfad.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn die Datei ausgeschlossen ist (z.B. vendor oder *.min.js).</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>tools.build_docs.extract_doc_blocks</code></h4>
+                    <p>Liest eine Datei zeilenweise und gruppiert zusammenhaengende @doc-Zeilen zu Dokuobjekten.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>Path file_path Pfad zur Quellcodedatei.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>list Liste aller extrahierten Doku-Bloecke als Dictionaries.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>tools.build_docs.parse_project</code></h4>
+                    <p>Durchlaeuft das Projektverzeichnis und ordnet Sektionen, UI-Flows und Funktionen ihren Modulen zu.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>Path root_dir Wurzelverzeichnis des Projekts.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>list Strukturierte Liste aller Module inklusive Unterabschnitten.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>tools.build_docs.generate_software_docs</code></h4>
+                    <p>Erzeugt den Markdown-Inhalt fuer die technische Softwaredokumentation.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>list modules Liste der geparsten Modul-Dictionaries.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>str Fertig formatierter Markdown-String fuer SOFTWARE-DOKU.md.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>tools.build_docs.generate_user_manual</code></h4>
+                    <p>Erzeugt eine Click-to-Click-Bedienungsanleitung aus allen @doc-ui-flow-Bloecken.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>list modules Liste der geparsten Modul-Dictionaries.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>str Fertig formatierter Markdown-String fuer BEDIENUNGSANLEITUNG.md.</code></div>
+                    
+                    
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-admin-2">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/admin.php</span>
+                </div>
+                <h2>live_app.admin</h2>
+                <p class="purpose">Steuert die interne Admin-Oberflaeche, Formularaktionen und AJAX-Endpunkte fuer Teilnehmer, Teams und Auditdaten.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf durch berechtigte Benutzer oder AJAX-Clients.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Session, Berechtigungen, Formulareingaben, CSRF-Token und Datenbank.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML der Admin-Seite oder JSON-Antworten fuer Einzelaktionen.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest und schreibt Datenbankeintraege, Sessionstatus und HTTP-Antworten.</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>logout-and-entry</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Behandelt fruehe Admin-Einstiege wie Logout, bevor weitere Controller-Logik ausgefuehrt wird.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>login-processing</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Prueft Login-Versuche fuer reguläre Benutzer und optionale Recovery-Pfade.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>webauthn-login</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Biometrische Anmeldung per WebAuthn (Fingerabdruck/Gesicht).</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>ajax-endpoints</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Bedient alle JSON-Endpunkte fuer Suche, Teilnehmerpflege, Zahlstatus, Teams und Audit-Log.</li><li><strong>Ausloeser:</strong> GET ajax_action oder POST ajax_action</li><li><strong>Ausgabe:</strong> JSON-Antworten fuer die Admin-Oberflaeche</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>webauthn-registration</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Registrierung eines biometrischen Schlüssels für den aktuell eingeloggten Benutzer.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>user-management-actions</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Verarbeitet Benutzerverwaltung wie Anlegen, Rollenwechsel, Passwortwechsel und Loeschen.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>token-actions</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Generiert Zugriffstokens für autorisierte Benutzer (Admin). Das Klartext-Token wird nur einmal angezeigt.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>profile-actions</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Erlaubt dem aktuell angemeldeten Benutzer die Pflege des eigenen Passworts.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>profile-update</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Erlaubt dem Benutzer die Aenderung des eigenen Benutzernamens und (mit Berechtigung) der eigenen Rolle.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>team-actions</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Verarbeitet klassische Formularaktionen rund um Teamanlage und Teambearbeitung ausserhalb der AJAX-Modale.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>page-data-loading</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Laedt nach Abschluss aller Schreiboperationen die Datenbasis fuer die HTML-Ansicht.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>admin-page-rendering</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Rendert die komplette Admin-Oberflaeche inklusive Teilnehmerliste, Teams, Benutzerverwaltung und Audit-Log.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>admin-shell</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Rendert den oberen Admin-Rahmen mit Session-Info, Schnellzugriffen, Suche und Bereichsnavigation.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>participant-list --&gt;</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Zeigt alle Teilnehmer mit Such-, Zahlungs- und Bearbeitungsaktionen in einer kompakten Tabelle. --&gt;</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>cashier-client</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Steuert Kasseninteraktion, QR-Scan, Suchtrefferaufbau und Zahlungsaktionen im eingebetteten Admin-Skript.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>settings-client</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Verwaltet Designeinstellungen, Sprache, Veranstaltungsart und App-Reset.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>viewframe-scroll-top</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Positioniert den Viewframe (Inhaltsbereich) nach jedem Laden und Navigationsschritt exakt am oberen Viewport-Rand. Sticky-Logo-Höhe wird berücksichtigt.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>webauthn-client</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Steuert die biometrische Anmeldung und Registrierung per WebAuthn.</li></ul>
+                    
+                </div>
+                </div>
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-assets-app-3">
+                <div class="card-header">
+                    <span class="badge badge-kind">frontend-controller</span>
+                    <span class="badge badge-file">live_app/assets/app.js</span>
+                </div>
+                <h2>live_web.assets.app</h2>
+                <p class="purpose">Initialisiert globale UI-Helfer, Modale, Tabellenwerkzeuge und AJAX-Aktionen der Weboberflaeche.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>Browser laedt die zentrale Frontend-Datei.</td></tr><tr><th>Eingaben (@doc-input)</th><td>DOM, Fetch-Endpunkte, LocalStorage und CSS-Klassen.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Interaktive Bedienlogik fuer Admin- und Dashboard-Seiten.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Veraendert DOM, sendet HTTP-Requests und speichert UI-Zustand im Browser.</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>scroll-to-top</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Setzt beim Laden jeder Seite die Scrollposition auf den oberen Viewport-Rand.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>alerts</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Steuert das automatische Ausblenden neuer und bestehender Statusmeldungen.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>display-mode</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Erkennt die verfuegbare Anzeigebreite und markiert die Seite explizit als Mobil- oder Desktopmodus.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>registration-autoscroll</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Scrollt nach dem Laden sanft bis knapp unter das DLRG-Logo, falls der eigentliche Seiteninhalt sonst noch verdeckt waere.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>team-selection</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Steuert die Umschaltung zwischen bestehender Teamauswahl und Eingabe eines neuen Teams.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>modal-base</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Kapselt das generische Oeffnen und Schliessen von Modalen inklusive Fokusfuehrung.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>participant-edit</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Oeffnet die Bearbeitung eines Teilnehmers, befuellt das Formular und uebernimmt Aenderungen per AJAX.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>participant-delete</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Loescht einen Teilnehmer nach Rueckfrage und aktualisiert die Liste direkt im Browser.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>table-state-storage</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Verwaltet den gespeicherten Tabellenzustand fuer Sichtbarkeit und stabile Identifikation pro Tabelle.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>data-table-enhancement</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Erweitert Tabellen um Filter, Sortierung, Spaltenauswahl und Drag-and-drop.</li><li><strong>Seiteneffekte:</strong> Liest und schreibt Tabellenzustand in LocalStorage und veraendert DOM-Struktur.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>admin-navigation</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Schaltet zwischen Admin-Bereichen um, spiegelt den aktiven Abschnitt im URL-Hash und fuellt die Sidebar-Sprungmarken.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>team-management</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Verwaltet Teammitglieder in einem Modal und verbindet Suche, Zuordnung und Entfernen per AJAX.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>audit-log</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Laedt, filtert, erweitert und loescht Audit-Eintraege in der Admin-Oberflaeche.</li></ul>
+                    
+                </div>
+                </div>
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-assets-style-4">
+                <div class="card-header">
+                    <span class="badge badge-kind">style</span>
+                    <span class="badge badge-file">live_app/assets/style.css</span>
+                </div>
+                <h2>live_web.assets.style</h2>
+                <p class="purpose">Definiert das visuelle Grundlayout der oeffentlichen und internen Weboberflaeche.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>Browser laedt das zentrale Stylesheet.</td></tr><tr><th>Eingaben (@doc-input)</th><td>HTML-Struktur, CSS-Variablen und Komponentenklassen.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Gestylte Layouts, Formulare, Karten und Tabellen.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Beeinflusst Darstellung, Responsivitaet und visuelle Priorisierung.</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>admin-shell-layout */</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Strukturiert den oberen Admin-Rahmen in klar getrennte Bereiche fuer Status, Suche und Navigation. */</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>participant-table-actions */</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Gestaltet die Sticky-Aktionsspalte der Teilnehmer-Tabelle passend zum restlichen Karten- und Tabellenstil. */</li></ul>
+                    
+                </div>
+                </div>
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-backup-5">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/backup.php</span>
+                </div>
+                <h2>live_app.backup</h2>
+                <p class="purpose">Bietet die Benutzeroberflaeche oder Ausfuehrung fuer Backup-Funktionen der Anwendung.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf durch berechtigte Benutzer.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Session, Berechtigungen, Dateisystem und Datenbank.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML oder Statusantworten fuer Backups.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Kann Sicherungen erzeugen und Dateien schreiben.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-dashboard-dashboard-6">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/dashboard/dashboard.php</span>
+                </div>
+                <h2>live_app.dashboard.dashboard</h2>
+                <p class="purpose">Erzeugt die kompakte interne Dashboard-Uebersicht mit Kennzahlen und Schnellstatus.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf der Dashboard-Seite.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Datenbank, Berechtigungen und Hilfsfunktionen.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML-Dashboard mit Kennzahlen.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Fuehrt Statistikabfragen aus und rendert eine Live-Uebersicht.</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>access-control</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Das Dashboard zeigt aggregierte Teilnehmerstatistiken und ist nur fuer angemeldete Benutzer sichtbar.</li></ul>
+                    
+                </div>
+                </div>
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.dashboard.dashboard.dash_dt</code></h4>
+                    <p>Formatiert einen Datenbank-Zeitstempel als deutsches Datum mit Uhrzeit fuer die Dashboard-Anzeige.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>?string $value Roher Zeitstempelwert; null oder leer ergibt einen Platzhalter.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Formatiertes Datum &quot;d.m.Y H:i&quot; oder ein Platzhalterzeichen bei ungueltigem Wert.</code></div>
+                    
+                    
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-dashboard-event_live-7">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/dashboard/event_live.php</span>
+                </div>
+                <h2>live_app.dashboard.event_live</h2>
+                <p class="purpose">Rendert die interne Live-Eventansicht fuer aktuelle Schwimmdaten und Highlights.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf der Live-Dashboard-Seite.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Live-Datenquellen, Hilfsfunktionen und Anzeigeparameter.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML-Liveansicht fuer Eventbetrieb.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest Live-Daten und rendert fortlaufend aktualisierbare Inhalte.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-dashboard-eventlifkiosk-8">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/dashboard/eventlifkiosk.php</span>
+                </div>
+                <h2>live_app.dashboard.eventlifkiosk</h2>
+                <p class="purpose">Rendert die Dashboard-Kioskansicht fuer grossflaechige Live-Anzeige im internen Betrieb.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf der Dashboard-Kioskseite.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Live-Datenquellen und Anzeigeparameter.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML-Kioskansicht.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest Live-Daten und erzeugt eine grossformatige Anzeige.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-dashboard-json_live-9">
+                <div class="card-header">
+                    <span class="badge badge-kind">api-endpoint</span>
+                    <span class="badge badge-file">live_app/dashboard/json_live.php</span>
+                </div>
+                <h2>live_app.dashboard.json_live</h2>
+                <p class="purpose">Liefert strukturierte Live-Daten fuer Dashboards und andere Frontends.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf durch Frontend oder Monitoring.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Datenbank, JSON- oder SQLite-Livequellen und Hilfsfunktionen.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>JSON-Nutzdaten fuer Live-Anzeigen.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest Live-Datenquellen und sendet JSON mit HTTP-Headern.</td></tr></tbody></table>
+                
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.dashboard.json_live.json_live_html</code></h4>
+                    <p>Wandelt einen Wert HTML-sicher fuer die Live-Ausgabe um.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $value Rohwert.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string HTML-escaped Wert.</code></div>
+                    
+                    
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-diagnose-10">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/diagnose.php</span>
+                </div>
+                <h2>live_app.diagnose</h2>
+                <p class="purpose">Stellt Diagnoseinformationen fuer Betrieb, Konfiguration und Datenquellen bereit.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf durch berechtigte Benutzer.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Session, Datenbank, Umgebung und Laufzeitinformationen.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML oder Textausgabe mit Diagnosewerten.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest Systemzustand und kann Fehlersituationen sichtbar machen.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-export-11">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/export.php</span>
+                </div>
+                <h2>live_app.export</h2>
+                <p class="purpose">Erzeugt Exportansichten und Dateiausgaben fuer Teilnehmer- und Eventdaten.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf durch berechtigte Benutzer.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Session, Berechtigungen, Datenbank und Exportparameter.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Dateidownload oder HTML-Vorschau.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest Daten und kann Download-Header senden.</td></tr></tbody></table>
+                
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_get_team_options</code></h4>
+                    <p>Laedt alle Teams als Auswahlliste fuer die Exportfilter.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>list&lt;array{id:int,name:string}&gt; Liste der Teams mit ID und Name, sortiert nach Name.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_build_team_filter_options</code></h4>
+                    <p>Baut die Auswahloptionen fuer den Teamfilter inklusive &quot;Alle&quot; und optional &quot;Ohne Team&quot;.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>list&lt;array{id:int,name:string}&gt; $teamOptions Liste der Teams mit ID und Name.</code></li><li><code>bool $withNone Fuegt die Option &quot;Ohne Team&quot; hinzu, Standard true.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>list&lt;array{value:string,label:string}&gt; Liste der Filteroptionen aus Wert und Beschriftung.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_get_sources</code></h4>
+                    <p>Liefert die Konfiguration aller Exportquellen samt Spalten, Filtern und Standardwerten.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>list&lt;array{id:int,name:string}&gt; $teamOptions Liste der Teams fuer die Teamfilteroptionen.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array&lt;string, array&lt;string, mixed&gt;&gt; Konfigurationsarray je Datenquelle.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_html</code></h4>
+                    <p>Wandelt einen Rohwert HTML-sicher fuer die Exportansicht um.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $value Rohwert.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string HTML-escaped Wert.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_csv_safe</code></h4>
+                    <p>Neutralisiert CSV-Formeleinschleusung, indem Werte mit fuehrendem =, +, - oder @ entschaerft werden.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $value Rohwert fuer die CSV-Zelle.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Abgesicherter Wert ohne Formelinjektion.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_format_value</code></h4>
+                    <p>Formatiert einen Zellwert anhand der Spaltenkonfiguration und eines optionalen Formatters.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array&lt;string, mixed&gt; $column Spaltenkonfiguration mit optionalem formatter.</code></li><li><code>array&lt;string, mixed&gt; $row Datenzeile mit allen Rohwerten.</code></li><li><code>string $key Schluessel der Spalte in der Datenzeile.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Formatierter Wert als String.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_pick_source</code></h4>
+                    <p>Waehlt die angeforderte Datenquelle oder faellt auf die erste verfuegbare zurueck.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array&lt;string, array&lt;string, mixed&gt;&gt; $sources Konfiguration aller verfuegbaren Datenquellen.</code></li><li><code>string|null $requested Angeforderter Quellenschluessel oder null.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Gueltiger Quellenschluessel.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_pick_columns</code></h4>
+                    <p>Ermittelt die gueltigen, deduplizierten und in Wunschreihenfolge sortierten Exportspalten.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array&lt;string, mixed&gt; $source Konfiguration der gewaehlten Quelle.</code></li><li><code>list&lt;string&gt; $requestedColumns Vom Benutzer angeforderte Spaltenschluessel.</code></li><li><code>string|null $columnOrder Kommaseparierte Wunschreihenfolge oder null.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>list&lt;string&gt; Gueltige Spaltenschluessel in Ausgabereihenfolge.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_pick_sort_field</code></h4>
+                    <p>Waehlt ein gueltiges Sortierfeld der Quelle oder faellt auf den Standard-Schluessel zurueck.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array&lt;string, mixed&gt; $source Konfiguration der gewaehlten Quelle.</code></li><li><code>string|null $requested Angefordertes Sortierfeld oder null.</code></li><li><code>string $fallbackKey Standard-Sortierfeld bei ungueltiger Angabe.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Gueltiger Spaltenschluessel fuer die Sortierung.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_pick_sort_direction</code></h4>
+                    <p>Normalisiert die Sortierrichtung auf ASC oder DESC und nutzt sonst den Standardwert.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string|null $requested Angeforderte Richtung oder null.</code></li><li><code>string $fallback Standardrichtung bei ungueltiger Angabe.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string &#x27;ASC&#x27; oder &#x27;DESC&#x27;.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_pick_filters</code></h4>
+                    <p>Bereinigt die angefragten Filterwerte durch Auswahlpruefung bzw. Laengenbegrenzung und liefert die aktiven Filter.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array&lt;string, mixed&gt; $source Konfiguration der gewaehlten Quelle.</code></li><li><code>array&lt;string, mixed&gt; $requestFilters Vom Benutzer uebergebene Filterwerte.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array&lt;string, string&gt; Bereinigte Filterwerte je Filterschluessel.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_build_query</code></h4>
+                    <p>Baut aus Quelle, Spalten, Filtern und Sortierung das parametrisierte SELECT-Statement.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array&lt;string, mixed&gt; $source Konfiguration der gewaehlten Quelle.</code></li><li><code>list&lt;string&gt; $selectedColumns Auszugebende Spaltenschluessel.</code></li><li><code>array&lt;string, string&gt; $selectedFilters Aktive Filterwerte je Filterschluessel.</code></li><li><code>string|null $sort1 Primaeres Sortierfeld oder null.</code></li><li><code>string $dir1 Sortierrichtung des ersten Feldes.</code></li><li><code>string|null $sort2 Sekundaeres Sortierfeld oder null.</code></li><li><code>string $dir2 Sortierrichtung des zweiten Feldes.</code></li><li><code>int|null $limit Optionale Zeilenbegrenzung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array{sql:string,params:array&lt;string,mixed&gt;} SQL-String und zugehoerige Parameter.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.export.export_execute_query</code></h4>
+                    <p>Fuehrt die vorbereitete Exportabfrage aus und liefert das Ergebnisstatement.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array&lt;string, mixed&gt; $query Abfrage mit den Schluesseln sql und params.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>PDOStatement Ausgefuehrtes Statement zum Abrufen der Zeilen.</code></div>
+                    
+                    
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-impressum-12">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/impressum.php</span>
+                </div>
+                <h2>live_app.impressum</h2>
+                <p class="purpose">Rendert die internen rechtlichen und organisatorischen Informationen fuer die Webanwendung.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf der Impressumsseite.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Statische Inhalte und gemeinsam genutztes Layout.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML-Impressum.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Keine fachlichen Seiteneffekte ausser HTML-Ausgabe.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-includes-admin_audit_endpoints-13">
+                <div class="card-header">
+                    <span class="badge badge-kind">helper-module</span>
+                    <span class="badge badge-file">live_app/includes/admin_audit_endpoints.php</span>
+                </div>
+                <h2>live_app.includes.admin_audit_endpoints</h2>
+                <p class="purpose">Kapselt die Audit-JSON-Endpunkte der Admin-Oberflaeche ausserhalb des grossen Seitencontrollers.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>Aufruf aus `admin.php` nach erfolgreicher Anmeldung.</td></tr><tr><th>Eingaben (@doc-input)</th><td>PDO-Verbindung, aktueller Benutzer, GET/POST-Parameter und CSRF-Token.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>JSON-Antworten fuer Audit-Ansicht und Audit-Loeschaktionen.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest und loescht Audit-Eintraege.</td></tr></tbody></table>
+                
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.admin_audit_endpoints.admin_audit_current_ajax_action</code></h4>
+                    <p>Bestimmt die Audit-Aktion so, dass bei POST-Requests der Body Vorrang vor der URL hat.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string Getrimmter Aktionsname oder Leerstring.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Bei POST wird $_POST[&#x27;ajax_action&#x27;] vorrangig ausgewertet; $_GET dient nur als Fallback bzw. fuer GET-Requests.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.admin_audit_endpoints.admin_audit_json_response</code></h4>
+                    <p>Kapselt Header, HTTP-Status und JSON-Kodierung fuer alle Audit-Endpunkte.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array $payload Zu sendende Antwortdaten.</code></li><li><code>int $statusCode HTTP-Statuscode, Standard 200.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.admin_audit_endpoints.admin_handle_audit_ajax</code></h4>
+                    <p>Behandelt Audit-Anzeige und -Loeschaktionen zentral und prueft dabei Rolle und CSRF-Token.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array $currentUser Angemeldeter Benutzer mit Rolle.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn die Aktion behandelt wurde (Antwort gesendet), sonst false.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Unbekannte Aktionen liefern false, damit der Aufrufer normal weiterarbeiten kann.</div>
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-includes-db_connect-14">
+                <div class="card-header">
+                    <span class="badge badge-kind">bootstrap</span>
+                    <span class="badge badge-file">live_app/includes/db_connect.php</span>
+                </div>
+                <h2>live_app.includes.db_connect</h2>
+                <p class="purpose">Initialisiert Umgebung, Session, Datenbankverbindung und Audit-Kontext und ist die einzige</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>Wird von privaten PHP-Seiten und CLI-Skripten frueh eingebunden.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Umgebungswerte und Session sowie, im Erstfall, den Migrationsaufruf aus scripts/migrate.php.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Verfuegbare PDO-Verbindung und initialisierte Laufzeitumgebung.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Startet die Session, setzt das PHP-Fehlerverhalten, verbindet die Datenbank, setzt die</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>session-bootstrap</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Kapselt Ermittlung des Session-Speicherpfads, Verzeichnisanlage und Session-Start.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>env-loading</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Laedt Konfiguration aus bekannten .env-Dateien und macht sie ueber getenv und $_ENV verfuegbar.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>database-bootstrap</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Validiert die Datenbankkonfiguration und baut eine robuste PDO-Verbindung auf.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>audit-context</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Leitet den ausloesenden Benutzer fuer SQL-Trigger her und legt Hashwerte fuer optionale Audit-Metadaten fest.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>schema-migration</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Prueft per Marker-Datei, ob das Schema bereits initialisiert wurde, und stoesst andernfalls</li></ul>
+                    
+                </div>
+                </div>
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.db_connect.app_session_configured_path</code></h4>
+                    <p>Liest den in der PHP-Konfiguration hinterlegten Session-Speicherpfad aus.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string|null Nutzbarer Pfad aus der PHP-Konfiguration oder null, wenn keiner gesetzt ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.db_connect.app_session_ensure_storage_dir</code></h4>
+                    <p>Stellt sicher, dass das angegebene Session-Verzeichnis existiert und beschreibbar ist.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $path Gewuenschter Verzeichnispfad.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string|null Verzeichnispfad bei Erfolg, sonst null.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.db_connect.app_session_bootstrap_path</code></h4>
+                    <p>Ermittelt einen beschreibbaren Session-Speicherpfad mit kontrollierten Ausweichzielen.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string|null Nutzbarer Session-Pfad oder null im CLI-Betrieb.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Webzugriffe weichen bei fehlerhaftem PHP-Sessionpfad bewusst auf storage/sessions und</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.db_connect.safe_substr</code></h4>
+                    <p>Kuerzt eine Zeichenkette multibyte-sicher und faellt auf substr zurueck.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>mixed $value Ausgangswert, wird in einen String umgewandelt.</code></li><li><code>int $start Startposition.</code></li><li><code>int|null $length Optionale Laenge.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Gekuerzte Zeichenkette.</code></div>
+                    
+                    
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-includes-functions-15">
+                <div class="card-header">
+                    <span class="badge badge-kind">shared-library</span>
+                    <span class="badge badge-file">live_app/includes/functions.php</span>
+                </div>
+                <h2>live_app.includes.functions</h2>
+                <p class="purpose">Bietet zentrale Hilfsfunktionen fuer Sicherheit, Authentifizierung, Registrierung, Teams, Analytics und Live-Auswertungen.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>Wird von privaten PHP-Seiten und APIs eingebunden.</td></tr><tr><th>Eingaben (@doc-input)</th><td>PDO, Session, Umgebungswerte und Rohdaten aus JSON oder SQLite.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Wiederverwendbare Fach- und Infrastruktur-Funktionen.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest Session und Umgebungswerte, erzeugt Tokens, sendet Requests und berechnet Auswertungen.</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>session-bootstrap-delegation</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Diese Bibliothek startet bewusst keine eigene Session und definiert keine Session-Helfer.</li><li><strong>Eingabe:</strong> Keine.</li><li><strong>Ausgabe:</strong> Keine.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>session-and-auth-bootstrap</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Wandelt einen Wert HTML-sicher fuer die Ausgabe um.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>asset-helpers</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Liefert die moeglichen absoluten Dateipfade fuer ein relatives Frontend-Asset.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>role-and-permission-model</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Definiert die Berechtigungsmatrix je Rolle als zentrale Quelle.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>login-throttling</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Liefert den Pfad zur Datei mit den Login-Fehlversuchen und legt das Verzeichnis an.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>password-policy</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Liefert die zentral definierte Mindestlaenge fuer Benutzerpasswoerter.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>notifications</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Benachrichtigt einen externen ntfy-Kanal ueber eine neue Anmeldung.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>registration-codes</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Liefert das abtippfreundliche Zeichenalphabet fuer Registrierungscodes.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>team-helpers</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Laedt alle benannten Teams als ID-Name-Paare.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>startnummern</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Schlaegt eine naechste Startnummer unter Bevorzugung teamreservierter Nummern vor.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>auth-http-logout</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Liefert den Namen des Cookies, das ein HTTP-Auth-Logout markiert.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>json-live-data</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Ermittelt den Pfad zur Schwimm-JSON, bevorzugt aus Umgebung, sonst aus dem Projekt.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>webauthn</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Kodiert Binaerdaten Base64-URL-konform ohne Auffuellzeichen.</li></ul>
+                    
+                </div>
+                </div>
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.app_asset_real_path</code></h4>
+                    <p>Ermittelt den ersten tatsaechlich vorhandenen Dateipfad eines Frontend-Assets.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $relativePath Relativer Asset-Pfad ab dem App-Verzeichnis.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string|null Erster existierender Pfad oder null, wenn kein Kandidat existiert.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.app_asset_version</code></h4>
+                    <p>Erzeugt eine cachebare Versionskennung aus dem Aenderungszeitpunkt eines Assets.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $relativePath Relativer Asset-Pfad ab dem App-Verzeichnis.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Versionskennung (Zeitstempel, &#x27;present&#x27; oder &#x27;missing&#x27;).</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.csrf_token_get</code></h4>
+                    <p>Liefert das CSRF-Token der aktuellen Session und erzeugt es bei Bedarf neu.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string Aktuelles CSRF-Token der Session.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Das Token wird bei fehlendem oder ungueltigem Sessionwert neu erzeugt.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.csrf_token_verify</code></h4>
+                    <p>Prueft ein uebermitteltes CSRF-Token zeitkonstant gegen das Session-Token.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string|null $token Zu pruefendes Token aus der Anfrage.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn das Token gueltig ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.admin_is_logged_in</code></h4>
+                    <p>Prueft, ob die Session als Admin angemeldet ist.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn eine aktive Admin-Anmeldung existiert.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.admin_login</code></h4>
+                    <p>Markiert die aktuelle Session als Admin-Anmeldung und erneuert deren ID.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Die Session-ID wird bei aktiver Session regeneriert; ein etwaiges HTTP-Logout wird zurueckgesetzt.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.admin_logout</code></h4>
+                    <p>Beendet die Session vollstaendig und entfernt das Session-Cookie.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.admin_password_hash_default</code></h4>
+                    <p>Erzeugt aus dem Umgebungspasswort einen Passwort-Hash fuer den Setup-Admin.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string Passwort-Hash oder leerer String, wenn kein Passwort konfiguriert ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_setup_password_enabled</code></h4>
+                    <p>Prueft, ob das Setup-Passwort per Umgebungsflag freigeschaltet ist.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn ALLOW_SETUP_PASSWORD gesetzt auf &#x27;1&#x27; ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_http_user</code></h4>
+                    <p>Liest den per HTTP-Authentifizierung uebermittelten Benutzernamen aus.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string|null Benutzername oder null, wenn keiner uebermittelt wurde.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_users_enabled</code></h4>
+                    <p>Prueft, ob die Benutzertabelle in der Datenbank vorhanden ist.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn die Tabelle users erreichbar ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_is_setup_mode</code></h4>
+                    <p>Prueft, ob sich das System im Ersteinrichtungsmodus ohne Benutzer befindet.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn die Benutzertabelle existiert und leer ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_admin_count</code></h4>
+                    <p>Ermittelt die Anzahl vorhandener Admin-Benutzer.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>int|null Anzahl der Admins oder null, wenn die Tabelle nicht verfuegbar ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_allow_setup_password</code></h4>
+                    <p>Entscheidet, ob eine Anmeldung mit dem Setup-Passwort erlaubt ist.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn das Setup-Passwort genutzt werden darf.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_role_normalize</code></h4>
+                    <p>Vereinheitlicht veraltete Rollennamen auf die aktuelle Rollenbezeichnung.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $role Roh-Rollenname.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Normalisierter Rollenname (&#x27;numbers&#x27; wird zu &#x27;orga&#x27;).</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_set_session</code></h4>
+                    <p>Schreibt die Benutzeridentitaet in die Session und setzt ein HTTP-Logout zurueck.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>int $user_id Benutzer-ID.</code></li><li><code>string $username Benutzername.</code></li><li><code>string $role Rollenname.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_clear_session</code></h4>
+                    <p>Loescht die Anmeldesitzung des Benutzers.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Delegiert an admin_logout() und beendet damit die gesamte Session.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_current_user</code></h4>
+                    <p>Ermittelt den aktuell angemeldeten Benutzer aus Session, Admin-Flag oder HTTP-Auth.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array|null Benutzerdaten (id, username, role) oder null, wenn nicht angemeldet.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Das Ergebnis wird statisch innerhalb des Requests zwischengespeichert.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_is_logged_in</code></h4>
+                    <p>Prueft, ob aktuell ein Benutzer angemeldet ist.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn auth_current_user() einen Benutzer liefert.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_login_client_ip</code></h4>
+                    <p>Ermittelt die Client-IP fuer die Fehlversuchszaehlung.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string Client-IP oder &#x27;0.0.0.0&#x27; als Rueckfallwert.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_login_load_attempts</code></h4>
+                    <p>Laedt die gespeicherten Login-Fehlversuche aus der Datei.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>array Fehlversuchsstruktur oder leeres Array bei fehlender/ungueltiger Datei.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_login_save_attempts</code></h4>
+                    <p>Persistiert die Login-Fehlversuche unter exklusiver Dateisperre.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array $data Fehlversuchsstruktur.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_login_prune_attempts</code></h4>
+                    <p>Entfernt Fehlversuchseintraege ausserhalb des Zeitfensters.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array $data Fehlversuchsstruktur.</code></li><li><code>int $windowSec Gueltiges Zeitfenster in Sekunden.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Bereinigte Fehlversuchsstruktur.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_login_is_locked</code></h4>
+                    <p>Prueft, ob IP oder Benutzername wegen zu vieler Fehlversuche gesperrt ist.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $ip Client-IP.</code></li><li><code>string $username Benutzername.</code></li><li><code>int $maxAttempts Maximale Fehlversuche bis zur Sperre.</code></li><li><code>int $lockSec Sperrdauer in Sekunden.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Status mit &#x27;locked&#x27;, &#x27;ip_count&#x27;, &#x27;user_count&#x27;, &#x27;max_attempts&#x27; und &#x27;lock_seconds&#x27;.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_login_record_failure</code></h4>
+                    <p>Erfasst einen Login-Fehlversuch fuer IP und Benutzername.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $ip Client-IP.</code></li><li><code>string $username Benutzername.</code></li><li><code>int $lockSec Sperrfenster in Sekunden, in dem Fehlversuche zaehlen.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_login_clear_attempts</code></h4>
+                    <p>Loescht die Fehlversuche fuer IP und Benutzername nach erfolgreicher Anmeldung.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $ip Client-IP.</code></li><li><code>string $username Benutzername.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_login_progressive_delay</code></h4>
+                    <p>Verzoegert weitere Login-Versuche progressiv zur Verlangsamung von Brute-Force.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>int $failureCount Bisherige Fehlversuche.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Die Verzoegerung ist auf maximal 2 Sekunden begrenzt.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_password_validate</code></h4>
+                    <p>Prueft ein Passwort gegen die Passwortrichtlinie und sammelt Fehlermeldungen.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $password Zu pruefendes Passwort.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Ergebnis mit &#x27;valid&#x27; (bool) und &#x27;errors&#x27; (Liste der Fehlermeldungen).</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_login_with_credentials</code></h4>
+                    <p>Meldet einen Benutzer mit Benutzername und Passwort unter Beruecksichtigung der Sperrlogik an.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li><li><code>string $username Benutzername.</code></li><li><code>string $password Klartextpasswort.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True bei erfolgreicher Anmeldung.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Bei Fehlschlag werden Fehlversuche gezaehlt; im Setup-Modus ist die Anmeldung deaktiviert.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_can</code></h4>
+                    <p>Prueft, ob der aktuelle Benutzer die angeforderte Berechtigung besitzt.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li><li><code>string $permission Zu pruefende Berechtigung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn die Berechtigung erlaubt ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_verify_token</code></h4>
+                    <p>Verifiziert ein Access-Token und liefert den zugehoerigen Benutzer.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li><li><code>string $raw_token Ungehashtes Access-Token.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array|null Benutzerdaten (user_id, username, role, token_id) oder null, wenn ungueltig/abgelaufen.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Aktualisiert last_used_at bei gueltigem Token.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_require_role</code></h4>
+                    <p>Erzwingt eine Rollenzugehoerigkeit und leitet sonst auf eine Zielseite um.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li><li><code>array $roles Erlaubte Rollen.</code></li><li><code>string $redirect_to Umleitungsziel bei fehlender Berechtigung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Beendet das Skript bei fehlender Berechtigung per exit.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_require_permission_or_403_json</code></h4>
+                    <p>Erzwingt eine Berechtigung und antwortet sonst mit HTTP 403 als JSON.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li><li><code>string $permission Erforderliche Berechtigung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Beendet das Skript bei fehlender Berechtigung per exit.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.registration_code_normalize</code></h4>
+                    <p>Vereinheitlicht einen Registrierungscode auf Grossbuchstaben ohne Trennzeichen.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $code Roh-Code.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Normalisierter Code.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.registration_name_normalize</code></h4>
+                    <p>Bereinigt einen Namensstring und begrenzt dessen Laenge.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $name Roh-Name.</code></li><li><code>int $maxLen Maximale Laenge; 0 bedeutet keine Begrenzung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Bereinigter Name.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.registration_code_format</code></h4>
+                    <p>Formatiert einen Registrierungscode in Vierergruppen fuer die Anzeige.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $code Roh-Code.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Formatierter Code mit Bindestrichen oder leerer String.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.luhn_mod_n_check_char</code></h4>
+                    <p>Berechnet die Luhn-Mod-N-Pruefziffer fuer einen Code-Rumpf.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $body Code-Rumpf ohne Pruefziffer.</code></li><li><code>string $alphabet Verwendetes Zeichenalphabet.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Berechnete Pruefziffer.</code></div>
+                    <div class="sub-label">Exceptions:</div><ul class="code-list"><li><code>RuntimeException Wenn das Alphabet zu kurz ist oder ein Zeichen nicht im Alphabet vorkommt.</code></li></ul>
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.registration_code_generate</code></h4>
+                    <p>Erzeugt einen neuen Registrierungscode mit angehaengter Pruefziffer.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>int $random_len Anzahl der Zufallszeichen im Rumpf.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Vollstaendiger Code inklusive Pruefziffer.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.registration_code_is_valid</code></h4>
+                    <p>Prueft die Gueltigkeit eines Registrierungscodes anhand seiner Pruefziffer.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $code Zu pruefender Code.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn der Code formal gueltig ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.team_name_normalize</code></h4>
+                    <p>Bereinigt einen Teamnamen und begrenzt dessen Laenge.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string|null $name Roh-Teamname.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string|null Bereinigter Teamname oder null, wenn leer.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.team_get_or_create_id</code></h4>
+                    <p>Liefert die ID eines Teams und legt es bei Bedarf atomar neu an.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li><li><code>string|null $teamname Teamname.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>int|null Team-ID oder null bei leerem Namen oder Fehler.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.team_get_name_by_id</code></h4>
+                    <p>Ermittelt den Namen eines Teams anhand seiner ID.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung.</code></li><li><code>int|null $team_id Team-ID.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string|null Teamname oder null, wenn nicht vorhanden.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>assign_startnummer</code></h4>
+                    <p>Kapselt Startnummernvergabe, Wunschnummernpruefung und optionale Zahlungsmarkierung in einer</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung (Verwaltungs-Datenbank).</code></li><li><code>int $teilnehmer_id ID des Ziel-Teilnehmers.</code></li><li><code>int|null $team_id Optionale Team-ID zur Bevorzugung reservierter Nummern; ohne Angabe wird die</code></li><li><code>int $wunschnummer Wunschnummer &gt; 0; 0 bedeutet automatische Vergabe.</code></li><li><code>bool $markPaid Markiert den Teilnehmer in derselben Transaktion als bezahlt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>int|null Vergebene Startnummer oder null, wenn keine Nummer verfuegbar ist.</code></div>
+                    <div class="sub-label">Exceptions:</div><ul class="code-list"><li><code>RuntimeException Wenn der Teilnehmer fehlt, die Wunschnummer bereits vergeben ist oder das</code></li></ul>
+                    <div class="note-box"><strong>Hinweis:</strong> Eigene Transaktion wird nur gestartet, wenn der Aufrufer noch keine aktiv hat; eine bestehende</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_cookie_is_secure</code></h4>
+                    <p>Erkennt, ob die aktuelle Verbindung ueber HTTPS laeuft.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn das Cookie als secure gesetzt werden soll.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_mark_http_logout</code></h4>
+                    <p>Setzt ein Cookie, das einen expliziten HTTP-Auth-Logout markiert.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Das Cookie ist HttpOnly, SameSite=Strict und bei HTTPS secure.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_clear_http_logout</code></h4>
+                    <p>Entfernt das HTTP-Auth-Logout-Cookie.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.auth_http_logout_requested</code></h4>
+                    <p>Prueft, ob ein HTTP-Auth-Logout angefordert wurde.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn das Logout-Cookie gesetzt ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.sqlite_live_default_file_path</code></h4>
+                    <p>Liefert den Standardpfad der SQLite-Live-Datenbank.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string Absoluter Pfad zur data.sqlite.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>sqlite_live_open</code></h4>
+                    <p>Stellt die einzige zentrale Verbindungs-Initialisierung fuer die SQLite-Live-Datenbank bereit.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string|null $sqlitePath Optionaler Pfad; ohne Angabe wird ueber sqlite_live_default_file_path() aufgeloest.</code></li><li><code>bool $readOnly Kennzeichnet eine reine Leseverbindung (Datei muss dann bereits existieren).</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>PDO Konfigurierte SQLite-Verbindung.</code></div>
+                    <div class="sub-label">Exceptions:</div><ul class="code-list"><li><code>RuntimeException Wenn im Read-Only-Modus die Datei fehlt.</code></li></ul>
+                    <div class="note-box"><strong>Hinweis:</strong> PRAGMA busy_timeout wird immer gesetzt; journal_mode/synchronous werden defensiv abgefangen,</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.live_data_source_resolve</code></h4>
+                    <p>Bestimmt die aktive Live-Datenquelle und ihren Pfad.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>array{mode:string,path:string} Aktive Datenquelle mit Modus und Pfad.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Liefert derzeit immer den SQLite-Modus.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.json_live_read_payload</code></h4>
+                    <p>Liest und dekodiert die Schwimm-JSON-Datei mit klarer Fehlerbehandlung.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $jsonPath Pfad zur JSON-Datei.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Dekodierter JSON-Inhalt.</code></div>
+                    <div class="sub-label">Exceptions:</div><ul class="code-list"><li><code>RuntimeException Wenn die Datei fehlt, leer oder ungueltig ist.</code></li></ul>
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.sqlite_live_decode_parameter</code></h4>
+                    <p>Normalisiert den Parameterwert einer Action zu einer Werteliste.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>mixed $rawValue Rohwert (Array, JSON-String oder CSV-String).</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Liste der dekodierten Parameterwerte.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.sqlite_live_read_payload</code></h4>
+                    <p>Liest Schwimmer und Actions aus der SQLite-Live-Datenbank und bereitet sie JSON-aehnlich auf.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $sqlitePath Pfad zur SQLite-Datei.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Payload mit &#x27;alleSchwimmer&#x27;, &#x27;actions&#x27; und &#x27;statMessages&#x27;.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.json_live_normalize_name</code></h4>
+                    <p>Bildet einen anzeigbaren Namen aus Vor-, Nachname oder Nummer.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array $row Rohe Schwimmerdaten.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Anzeigename oder Fallback wie &#x27;Schwimmer &lt;Nummer&gt;&#x27; bzw. &#x27;Unbekannt&#x27;.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.json_live_normalize_swimmer_map</code></h4>
+                    <p>Vereinheitlicht die unterschiedlichen Schwimmerquellen der JSON zu einer Map nach Nummer.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array $payload Roh-Payload der Schwimm-JSON.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Nach Schwimmernummer sortierte, normalisierte Schwimmerdaten.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.json_live_action_timestamp</code></h4>
+                    <p>Ermittelt den Zeitstempel einer Action aus verschiedenen moeglichen Feldern.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array $action Action-Datensatz.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>int|null Unix-Zeitstempel oder null, wenn keiner ermittelbar ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.json_live_action_command</code></h4>
+                    <p>Liest das Kommando einer Action in Normalform (Grossbuchstaben).</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array $action Action-Datensatz.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Kommando in Grossbuchstaben oder leerer String.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.json_live_prepare_actions</code></h4>
+                    <p>Reichert Actions um Kommando und Zeitstempel an und sortiert sie chronologisch.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array $payload Roh-Payload der Schwimm-JSON.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Sortierte Actions mit internen Feldern &#x27;_command&#x27; und &#x27;_timestamp&#x27;.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.json_live_apply_action_stats</code></h4>
+                    <p>Aggregiert Bahnen und Aktivstatus aus den Actions in die Schwimmerkarte.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array&lt;int, array&lt;string, mixed&gt;&gt; $swimmerMap Schwimmerdaten nach Nummer.</code></li><li><code>list&lt;array&lt;string, mixed&gt;&gt; $actions Vorbereitete Action-Datensaetze.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array&lt;int, array&lt;string, mixed&gt;&gt; Aktualisierte Schwimmerkarte inkl. Actions ohne Stammdaten.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.json_live_load_lane_timeframes</code></h4>
+                    <p>Wertet aktive Zeitfenster aus und zaehlt die darin enthaltenen ADD-Ereignisse.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Verbindung zur Verwaltungsdatenbank.</code></li><li><code>array $actions Vorbereitete Action-Datensaetze.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Liste der Zeitfenster mit Bahnen und eindeutigen Schwimmern.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.json_live_build_overview</code></h4>
+                    <p>Berechnet aus dem Live-Payload das vollstaendige Uebersichtsmodell fuer Dashboard und Kiosk.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array $payload Roh-Payload der Live-Daten.</code></li><li><code>PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.</code></li><li><code>string $sourceMode Kennzeichnet die Datenquelle (&#x27;json&#x27; oder &#x27;sqlite&#x27;).</code></li><li><code>string|null $sourcePath Pfad der Datenquelle fuer Metadaten.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Vollstaendiges Uebersichtsobjekt inkl. Totals, Toplisten und Highlights.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.live_overview_error_payload</code></h4>
+                    <p>Erzeugt ein leeres Uebersichtsmodell mit Fehlermeldung im selben Schema.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $sourceMode Kennzeichnet die Datenquelle.</code></li><li><code>string $sourcePath Pfad der Datenquelle.</code></li><li><code>string $message Fehlermeldung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Leeres Uebersichtsobjekt mit &#x27;ok&#x27;=false und &#x27;error&#x27;.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.json_live_load_overview</code></h4>
+                    <p>Laedt und berechnet die Uebersicht aus einer JSON-Datei mit Fehlerfallback.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $jsonPath Pfad zur JSON-Datei.</code></li><li><code>PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Uebersichtsmodell oder Fehlerpayload.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.sqlite_live_load_overview</code></h4>
+                    <p>Laedt und berechnet die Uebersicht aus der SQLite-Datenbank mit Fehlerfallback.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $sqlitePath Pfad zur SQLite-Datei.</code></li><li><code>PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Uebersichtsmodell oder Fehlerpayload.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.live_load_overview</code></h4>
+                    <p>Laedt die Uebersicht anhand der aufgeloesten Live-Datenquelle.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO|null $pdo Optionale Verbindung fuer Zeitfenster-Statistiken.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Uebersichtsmodell oder Fehlerpayload.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.event_live_load_overview</code></h4>
+                    <p>Laedt die Veranstaltungs-Uebersicht ueber die allgemeine Live-Quelle.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Verbindung fuer Zeitfenster-Statistiken.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Uebersichtsmodell oder Fehlerpayload.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.webauthn_base64url_decode</code></h4>
+                    <p>Dekodiert einen Base64-URL-String zurueck in Binaerdaten.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $data Base64-URL-kodierter String.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Dekodierte Rohdaten.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.webauthn_cbor_decode</code></h4>
+                    <p>Dekodiert einen CBOR-Wert ab der aktuellen Offset-Position fuer WebAuthn-Daten.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $data CBOR-kodierte Rohdaten.</code></li><li><code>int &amp;$offset Leseposition, wird beim Dekodieren fortgeschrieben.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>mixed Dekodierter Wert (int, string, array oder map) oder null bei ungueltigen Daten.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Der Offset wird als Referenz uebergeben und waehrend der Rekursion aktualisiert.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.webauthn_cose_public_key_to_pem</code></h4>
+                    <p>Wandelt einen COSE-EC2-Schluessel in ein PEM-Format fuer openssl_verify um.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array $coseKey Dekodierter COSE-Schluessel.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string|null PEM-Public-Key oder null bei nicht unterstuetztem Schluesseltyp.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.webauthn_generate_challenge</code></h4>
+                    <p>Erzeugt eine zufaellige WebAuthn-Challenge.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string Hex-kodierte Challenge.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.webauthn_rp_id</code></h4>
+                    <p>Ermittelt die Relying-Party-ID aus dem aktuellen Host.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string Hostname ohne Port (Standard &#x27;localhost&#x27;).</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.webauthn_verify_registration</code></h4>
+                    <p>Verifiziert die WebAuthn-Registrierung und extrahiert Credential-ID und Public Key.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $clientDataJSON ClientData als JSON.</code></li><li><code>string $attestationObject CBOR-kodiertes Attestation-Objekt.</code></li><li><code>string $expectedChallenge Erwartete Challenge.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array|null Daten mit &#x27;credential_id&#x27; und &#x27;public_key&#x27; oder null bei Prueffehler.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.includes.functions.webauthn_verify_authentication</code></h4>
+                    <p>Verifiziert eine WebAuthn-Anmelde-Assertion per Signaturpruefung.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $credentialIdB64 Base64-URL-kodierte Credential-ID.</code></li><li><code>string $clientDataJSON ClientData als JSON.</code></li><li><code>string $authenticatorData Authenticator-Daten.</code></li><li><code>string $signature Signatur ueber die Assertion.</code></li><li><code>string $publicKeyPem PEM-Public-Key des Credentials.</code></li><li><code>string $expectedChallenge Erwartete Challenge.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn die Assertion gueltig ist.</code></div>
+                    
+                    
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-index-16">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/index.php</span>
+                </div>
+                <h2>live_app.index</h2>
+                <p class="purpose">Stellt die Hauptseite fuer Anmeldung und oeffentliche Eventinformationen bereit.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf der Startseite.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Session, Formularwerte, Datenbank und Konfiguration.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML der oeffentlichen Hauptseite.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Kann Formulardaten verarbeiten und Persistenz ausloesen.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-numbers-17">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/numbers.php</span>
+                </div>
+                <h2>live_app.numbers</h2>
+                <p class="purpose">Verwaltet Startnummern, Reservierungen und Zuweisungen für Teilnehmer und Teams.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf durch berechtigte Benutzer.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Session, Berechtigungen, Formularwerte und Datenbank.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML oder Aktionsantworten für die Startnummernverwaltung.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Ändert Startnummernstatus und Teilnehmerzuordnungen in der Datenbank.</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>numbers-actions</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Verarbeitet Reservieren, Freigeben und direkte Zuweisung von Startnummern.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>numbers-data-loading</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Lädt Nummernbestand, Teamreservierungen und freie Zuordnungsdaten für die Seite.</li></ul>
+                    
+                </div>
+                </div>
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-scripts-analyze_event_sqlite-18">
+                <div class="card-header">
+                    <span class="badge badge-kind">cli-script</span>
+                    <span class="badge badge-file">live_app/scripts/analyze_event_sqlite.py</span>
+                </div>
+                <h2>live_app.scripts.analyze_event_sqlite</h2>
+                <p class="purpose">Analysiert die SQLite-Datenbank eines 24h-Schwimmens und erzeugt umfassende Event-Statistiken.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>CLI-Aufruf durch Entwickler oder Betrieb.</td></tr><tr><th>Eingaben (@doc-input)</th><td>SQLite-Datei mit Tabellen `schwimmer` und `actions`.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Menschlich lesbare Zusammenfassung oder JSON-Report.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest die Datenbank nur lesend.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-scripts-backup-19">
+                <div class="card-header">
+                    <span class="badge badge-kind">script</span>
+                    <span class="badge badge-file">live_app/scripts/backup.php</span>
+                </div>
+                <h2>live_app.scripts.backup</h2>
+                <p class="purpose">Fuehrt Backup-Aufgaben ausserhalb der Weboberflaeche aus.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>CLI- oder Scheduler-Aufruf.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Dateisystem, Datenbank und Konfiguration.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Statusausgaben und erzeugte Sicherungsdateien.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Schreibt Backup-Dateien und greift auf Datenquellen zu.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-scripts-create_admin-20">
+                <div class="card-header">
+                    <span class="badge badge-kind">script</span>
+                    <span class="badge badge-file">live_app/scripts/create_admin.php</span>
+                </div>
+                <h2>live_app.scripts.create_admin</h2>
+                <p class="purpose">Legt einen Admin-Benutzer fuer den Initialbetrieb oder Notfall an.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>CLI-Aufruf durch Administratoren.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Zugangsdaten, Datenbank und Konfiguration.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Angelegter Admin-Benutzer oder Fehlermeldung.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Schreibt Benutzerdaten in die Datenbank.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-scripts-diagnose-21">
+                <div class="card-header">
+                    <span class="badge badge-kind">script</span>
+                    <span class="badge badge-file">live_app/scripts/diagnose.php</span>
+                </div>
+                <h2>live_app.scripts.diagnose</h2>
+                <p class="purpose">Prueft Konfiguration, Datenbank und Laufzeitbedingungen ausserhalb der Weboberflaeche.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>CLI-Aufruf durch Betrieb oder Entwickler.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Umgebung, Datenbank und Dateisystem.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Statusausgaben fuer Diagnosezwecke.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest System- und Konfigurationszustand.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-scripts-merge_schwimmerdaten-22">
+                <div class="card-header">
+                    <span class="badge badge-kind">cli-script</span>
+                    <span class="badge badge-file">live_app/scripts/merge_schwimmerdaten.py</span>
+                </div>
+                <h2>live_app.scripts.merge_schwimmerdaten</h2>
+                <p class="purpose">Fuehrt CSV-Stammdaten und JSON-Eventlogs zu einer aktualisierten Ergebnis-CSV zusammen.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>CLI-Aufruf durch Entwickler oder Betrieb.</td></tr><tr><th>Eingaben (@doc-input)</th><td>CSV-Datei, JSON-Backup und optionale Zeitfensterdatei.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Aktualisierte CSV-Datei und Statusausgaben im Terminal.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Liest Eingabedateien und schreibt eine neue Ausgabedatei.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-scripts-migrate-23">
+                <div class="card-header">
+                    <span class="badge badge-kind">migration-module</span>
+                    <span class="badge badge-file">live_app/scripts/migrate.php</span>
+                </div>
+                <h2>live_app.scripts.migrate</h2>
+                <p class="purpose">Stellt Tabellen, Spalten, Indizes, Fremdschluessel und Audit-Trigger idempotent her und</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>Direkter CLI-Aufruf &quot;php live_app/scripts/migrate.php [--force-triggers]&quot; oder einmalige</td></tr><tr><th>Eingaben (@doc-input)</th><td>PDO-Verbindung zu MySQL/MariaDB sowie optionale Kommandozeilenparameter.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Ergebnisarray mit Status, Marker-Kennzeichnung und Protokolleintraegen, im CLI zusaetzlich Textausgabe.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Legt Datenbankstrukturen und Trigger an, bereinigt Startnummern-Konflikte und schreibt die Marker-Datei.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/setup.sql</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>storage-and-marker</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Kapselt Pfade, Verzeichnisanlage und die Marker-Datei, die den Migrationszustand dokumentiert.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>schema-introspection</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Bietet schlanke Metadatenabfragen, die ausschliesslich im Migrationslauf verwendet werden.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>table-catalog</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Definiert die Mengen der zu erstellenden Basistabellen in abhaengigkeitsfreier Reihenfolge.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>column-and-index-migration</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Bringt Bestandsinstallationen auf den Spalten- und Indexstand des Referenzschemas.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>data-consistency</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Stellt Startnummern-Grunddaten, Teamverknuepfungen und die Eindeutigkeit der Startnummern sicher.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>audit-triggers</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Beschreibt und pflegt die Audit-Trigger, die Datenbankaenderungen in audit_log protokollieren.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>migration-runner</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Steuert die Reihenfolge aller Migrationsschritte und stellt den oeffentlichen Einstieg bereit.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>cli-entry</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Startet die Migration ausschliesslich bei direktem CLI-Aufruf dieser Datei.</li></ul>
+                    
+                </div>
+                </div>
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_storage_dir</code></h4>
+                    <p>Liefert das private Storage-Verzeichnis und legt es bei Bedarf an.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string|null Absoluter Pfad zum Storage-Verzeichnis oder null, wenn es nicht nutzbar ist.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_marker_path</code></h4>
+                    <p>Ermittelt den Pfad der Schema-Marker-Datei, deren Existenz den Abschluss der Migration signalisiert.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string Absoluter Pfad der Marker-Datei.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_acquire_lock</code></h4>
+                    <p>Sichert die Erstmigration gegen parallele Aufrufe mittels Advisory File-Lock ab.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>float $timeoutSeconds Maximale Wartezeit in Sekunden, bevor der Aufruf aufgibt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>resource|null Offenes Lock-Handle oder null, wenn der Lock nicht innerhalb des Timeouts erworben wurde.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_release_lock</code></h4>
+                    <p>Gibt einen zuvor erworbenen Advisory File-Lock wieder frei.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>resource|null $handle Lock-Handle aus app_migration_acquire_lock().</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_write_marker</code></h4>
+                    <p>Schreibt die Marker-Datei, damit nachfolgende Requests keine DDL-Pruefungen mehr ausfuehren.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $source Kennzeichnung des ausloesenden Kontexts, u. a. &quot;web&quot; oder &quot;cli&quot;.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True bei erfolgreichem Schreiben.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_table_exists</code></h4>
+                    <p>Prueft, ob eine Tabelle in der aktuellen Datenbank existiert.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>string $table Tabellenname.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn die Tabelle existiert.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_column_exists</code></h4>
+                    <p>Prueft, ob eine Spalte in einer Tabelle existiert.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>string $table Tabellenname.</code></li><li><code>string $column Spaltenname.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn die Spalte existiert.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_index_exists</code></h4>
+                    <p>Prueft, ob ein Index oder Unique-Key in einer Tabelle existiert.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>string $table Tabellenname.</code></li><li><code>string $index Indexname.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn der Index existiert.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_trigger_exists</code></h4>
+                    <p>Prueft, ob ein Trigger in der aktuellen Datenbank existiert.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>string $trigger Triggername.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn der Trigger existiert.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_exec</code></h4>
+                    <p>Fuehrt einen DDL-Schritt aus und protokolliert Erfolg oder Ueberspringen.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>string $sql Auszufuehrendes SQL-Statement.</code></li><li><code>array $log Protokollpuffer, wird per Referenz ergaenzt.</code></li><li><code>string $label Sprechende Bezeichnung des Schritts.</code></li><li><code>bool $optional True, wenn Fehler toleriert und nur protokolliert werden sollen.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>bool True, wenn das Statement erfolgreich ausgefuehrt wurde.</code></div>
+                    <div class="sub-label">Exceptions:</div><ul class="code-list"><li><code>PDOException Wenn $optional false ist und das Statement fehlschlaegt.</code></li></ul>
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_table_statements</code></h4>
+                    <p>Liefert die CREATE-Statements der Basistabellen in FK-tauglicher Reihenfolge.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>array&lt;string,string&gt; Abbildung Tabellenname auf CREATE TABLE IF NOT EXISTS-Statement.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_ensure_tables</code></h4>
+                    <p>Erstellt alle fehlenden Basistabellen inklusive access_tokens und webauthn_credentials.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array $log Protokollpuffer, wird per Referenz ergaenzt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    <div class="sub-label">Exceptions:</div><ul class="code-list"><li><code>PDOException Wenn eine Pflichttabelle nicht angelegt werden kann.</code></li></ul>
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_ensure_columns</code></h4>
+                    <p>Ergaenzt fehlende Spalten und Indizes in teilnehmer, startnummern und lane_timeframes.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array $log Protokollpuffer, wird per Referenz ergaenzt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_drop_legacy_columns</code></h4>
+                    <p>Entfernt historische Request-Metadaten-Spalten, sofern sie noch vorhanden sind.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array $log Protokollpuffer, wird per Referenz ergaenzt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Die fachliche Bereinigung inklusive Berichtsfunktion liegt in scripts/privacy_cleanup.php.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_seed_startnummern</code></h4>
+                    <p>Fuellt den Startnummern-Pool einmalig mit den Nummern 1 bis 999.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array $log Protokollpuffer, wird per Referenz ergaenzt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_backfill_teams</code></h4>
+                    <p>Ueberfuehrt Freitext-Teamnamen in die teams-Tabelle und synchronisiert die Verweise.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array $log Protokollpuffer, wird per Referenz ergaenzt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_ensure_team_foreign_keys</code></h4>
+                    <p>Legt die Fremdschluessel zwischen Teilnehmern, Startnummern und Teams an, sofern sie fehlen.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array $log Protokollpuffer, wird per Referenz ergaenzt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_enforce_unique_startnummer</code></h4>
+                    <p>Bereinigt ungueltige Startnummern und erzwingt die Eindeutigkeit von teilnehmer.startnummer.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array $log Protokollpuffer, wird per Referenz ergaenzt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Nullwerte bleiben von der Unique-Regel unberuehrt, da MySQL mehrere NULL-Werte in einem</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_repair_startnummer_consistency</code></h4>
+                    <p>Heilt einmalig verwaiste Zuordnungen zwischen teilnehmer und startnummern.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array $log Protokollpuffer, wird per Referenz ergaenzt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Nacharbeiten zu Befund B3: Das frueher bei jedem GET ausgefuehrte Reparatur-UPDATE aus numbers.php</div><div class="note-box"><strong>Hinweis:</strong> Die Richtung ist bewusst einseitig: teilnehmer.startnummer gilt als fuehrend, die zugehoerige</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_audit_catalog</code></h4>
+                    <p>Hinterlegt je ueberwachter Tabelle den Primaerschluessel und die zu protokollierenden Spalten.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>array&lt;string,array{pk:string,columns:array&lt;int,string&gt;}&gt; Katalog der Audit-Tabellen.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_trigger_definitions</code></h4>
+                    <p>Erzeugt die Triggerdefinitionen fuer alle vorhandenen Audit-Tabellen.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array&lt;string,string&gt; Abbildung Triggername auf CREATE TRIGGER-Statement.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Die Trigger lesen den ausloesenden Benutzer aus den Session-Variablen</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_ensure_triggers</code></h4>
+                    <p>Legt fehlende Audit-Trigger an und erneuert sie nur bei expliziter Anforderung.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>bool $force True, wenn bestehende Trigger verworfen und neu erstellt werden sollen.</code></li><li><code>array $log Protokollpuffer, wird per Referenz ergaenzt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Das bedingte Vorgehen vermeidet ein DROP/CREATE bei jedem Aufruf und damit ein Zeitfenster,</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_run</code></h4>
+                    <p>Fuehrt die vollstaendige, idempotente Schema-Migration aus.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array $options Optionen: force_triggers (bool) erzwingt das Neuerstellen aller Audit-Trigger.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array{status:string,log:array&lt;int,string&gt;} Status und Protokoll des Migrationslaufs.</code></div>
+                    <div class="sub-label">Exceptions:</div><ul class="code-list"><li><code>PDOException Wenn ein Pflichtschritt, etwa das Anlegen der Basistabellen, fehlschlaegt.</code></li></ul>
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_maybe_run</code></h4>
+                    <p>Fuehrt die Migration nur bei fehlender Marker-Datei aus und schuetzt sie per File-Lock.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo Aktive Datenbankverbindung.</code></li><li><code>array $options Optionen: force (bool) ignoriert die Marker-Datei, force_triggers (bool)</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array{status:string,marker_written:bool,log:array&lt;int,string&gt;} Ergebnis des Aufrufs.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Bei einem Timeout des File-Locks wird die Migration bewusst uebersprungen, da ein anderer</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_cli_main</code></h4>
+                    <p>Wertet Kommandozeilenparameter aus, fuehrt die Migration aus und gibt das Protokoll aus.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array&lt;int,string&gt; $arguments Argumentliste ohne Skriptnamen.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>int Prozess-Rueckgabewert, 0 bei Erfolg.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.scripts.migrate.app_migration_handle_direct_cli_call</code></h4>
+                    <p>Erkennt einen direkten CLI-Aufruf dieser Datei und startet dann die Migration.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Wird diese Datei von db_connect.php eingebunden, unterscheidet sich SCRIPT_FILENAME vom</div>
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-scripts-privacy_cleanup-24">
+                <div class="card-header">
+                    <span class="badge badge-kind">script</span>
+                    <span class="badge badge-file">live_app/scripts/privacy_cleanup.php</span>
+                </div>
+                <h2>live_app.scripts.privacy_cleanup</h2>
+                <p class="purpose">Bereinigt personenbezogene Daten nach definierten Datenschutzregeln oder Fristen.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>CLI- oder Scheduler-Aufruf.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Datenbank, Konfiguration und Retentionsregeln.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Statusausgaben der Bereinigung.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Aendert oder anonymisiert Datenbankinhalte.</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-seed_test_data-25">
+                <div class="card-header">
+                    <span class="badge badge-kind">dev-tool</span>
+                    <span class="badge badge-file">live_app/seed_test_data.php</span>
+                </div>
+                <h2>live_app.seed_test_data</h2>
+                <p class="purpose">Erzeugt umfangreiche, qualitativ hochwertige Testdaten fuer alle Funktionsbereiche des 24h-Schwimmen-Systems.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>CLI- oder Browser-Aufruf: php seed_test_data.php</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bestehende Datenbankverbindung aus config/.env.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Testdatensaetze in teams, teilnehmer, startnummern, users, lane_timeframes, access_tokens.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Fuegt Testdaten in die Datenbank ein. Bestehende Daten werden NICHT geloescht (INSERT IGNORE).</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-sync-26">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/sync.php</span>
+                </div>
+                <h2>live_app.sync</h2>
+                <p class="purpose">Synchronisiert bezahlte Teilnehmer mit Startnummer aus der MySQL-Datenbank in die SQLite-Live-Schwimmdatenbank.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf durch berechtigte Benutzer (orga/numbers/admin).</td></tr><tr><th>Eingaben (@doc-input)</th><td>MySQL-Tabelle teilnehmer, SQLite-Tabelle schwimmer, Session-Berechtigungen.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Vorschau oder Sync-Bericht als HTML.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Schreibt Stammdaten in die SQLite-Tabelle schwimmer; Live-Betriebsdaten (bahnanzahl, strecke, auf_bahn, aktiv) bleiben unveraendert.</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>access-control</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Der Sync veraendert die Live-Stammdaten und ist daher auf Rollen mit Bearbeitungsrecht beschraenkt.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>request-handling</code></h4>
+                    <ul class="detail-list"></ul>
+                    
+                </div>
+                </div>
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>sync_sqlite_path</code></h4>
+                    <p>Delegiert die Pfadaufloesung an die zentrale Quelle sqlite_live_default_file_path().</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string Absoluter Pfad zur data.sqlite im Projektstamm.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.sync.sync_escape</code></h4>
+                    <p>Escaped einen Wert fuer die sichere Ausgabe im HTML der Sync-Seite.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>?string $value Rohwert, der HTML-sicher ausgegeben werden soll.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string HTML-escaped Wert; null wird dabei als leerer String behandelt.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.sync.sync_load_candidates</code></h4>
+                    <p>Laedt alle bezahlten Teilnehmer mit vergebener Startnummer als Sync-Kandidaten aus MySQL.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $pdo MySQL-Verbindung zur Teilnehmerdatenbank.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>list&lt;array&lt;string, mixed&gt;&gt; Kandidatendatensaetze, sortiert nach Startnummer aufsteigend.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Nur bezahlte Teilnehmer mit vergebener Startnummer gelangen in die Live-Zeitnahme.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>sync_open_sqlite</code></h4>
+                    <p>Delegiert das Oeffnen an die zentrale Factory sqlite_live_open() (inkl. Concurrency-PRAGMAs).</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $path Absoluter Pfad zur SQLite-Datei.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>PDO|null Schreibende Verbindung oder null, wenn die Datei fehlt.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.sync.sync_existing_numbers</code></h4>
+                    <p>Laedt die bestehenden schwimmer-Zeilen aus SQLite als Map von Startnummer auf Datensatz.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $sqlite SQLite-Verbindung zur Live-Datenbank.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array&lt;int, array&lt;string, mixed&gt;&gt; Map von Startnummer auf den zugehoerigen schwimmer-Datensatz.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.sync.sync_run</code></h4>
+                    <p>Fuehrt den eigentlichen Sync der Kandidaten in die SQLite-Live-Datenbank innerhalb einer Transaktion aus.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $mysql MySQL-Quellverbindung mit den Teilnehmerdaten.</code></li><li><code>PDO $sqlite SQLite-Zielverbindung zur Live-Datenbank.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array{inserted:int,updated:int,total_candidates:int,details:list&lt;array&lt;string,mixed&gt;&gt;} Bericht mit Anzahl eingefuegter und aktualisierter Zeilen sowie Detailprotokoll.</code></div>
+                    <div class="sub-label">Exceptions:</div><ul class="code-list"><li><code>Throwable Wenn das Schreiben fehlschlaegt; die Transaktion wird dann zurueckgerollt und der Fehler weitergereicht.</code></li></ul>
+                    <div class="note-box"><strong>Hinweis:</strong> Aktualisierungen fassen nur Stammdaten an; bahnanzahl, strecke, auf_bahn und aktiv bleiben unveraendert.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.sync.sync_preview</code></h4>
+                    <p>Berechnet die Sync-Vorschau ohne Schreibzugriffe auf die Live-Datenbank.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>PDO $mysql MySQL-Quellverbindung mit den Teilnehmerdaten.</code></li><li><code>PDO $sqlite SQLite-Zielverbindung zur Live-Datenbank.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array{candidates:int,to_insert:list&lt;array&lt;string,mixed&gt;&gt;,to_update:list&lt;array&lt;string,mixed&gt;&gt;,existing_count:int} Vorschau mit Kandidatenzahl, neu anzulegenden und zu aktualisierenden Eintraegen sowie Bestandszahl.</code></div>
+                    
+                    
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_app-timeframes-27">
+                <div class="card-header">
+                    <span class="badge badge-kind">page-controller</span>
+                    <span class="badge badge-file">live_app/timeframes.php</span>
+                </div>
+                <h2>live_app.timeframes</h2>
+                <p class="purpose">Pflegt Zeitfenster fuer spaetere Live-Auswertungen nach Abschnitt oder Schicht.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf durch berechtigte Benutzer.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Session, Berechtigungen, Formularwerte und Datenbank.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML oder Aktionsantworten fuer Zeitfenster.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Legt Zeitfenster an, aendert sie oder deaktiviert sie.</td></tr></tbody></table>
+                
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.timeframes.tf_dt_local_date</code></h4>
+                    <p>Formatiert einen Datenbank-Zeitstempel als lokales Datum fuer Formularfelder.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string|null $dbValue Datenbankwert oder null.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Datum im Format Y-m-d oder Leerstring.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.timeframes.tf_dt_local_time</code></h4>
+                    <p>Formatiert einen Datenbank-Zeitstempel als lokale Uhrzeit fuer Formularfelder.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string|null $dbValue Datenbankwert oder null.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Uhrzeit im Format H:i oder Leerstring.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.timeframes.tf_dt_display</code></h4>
+                    <p>Formatiert einen Datenbank-Zeitstempel menschenlesbar fuer die Tabellenansicht.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string|null $dbValue Datenbankwert oder null.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string Datum im Format d.m.Y H:i, &#x27;-&#x27; bei leerem Wert oder Originalwert bei ungueltigem Datum.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.timeframes.tf_dt_db</code></h4>
+                    <p>Setzt Datum und Uhrzeit zu einem internen Datenbank-Zeitstempel zusammen.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $dateValue Datumswert aus dem Formular.</code></li><li><code>string $timeValue Uhrzeitwert aus dem Formular.</code></li><li><code>bool $isEnd Kennzeichnet die Endzeit; dann wird die letzte Minute (:59) gesetzt.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string|null Zeitstempel im Format Y-m-d H:i:s oder null bei fehlenden oder ungueltigen Werten.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.timeframes.tf_escape</code></h4>
+                    <p>Wandelt einen Rohwert HTML-sicher fuer die Zeitfensteransicht um.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $value Rohwert.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>string HTML-escaped Wert.</code></div>
+                    
+                    
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_app.timeframes.tf_row_overlap</code></h4>
+                    <p>Ermittelt Paare sich ueberlappender aktiver Zeitfenster zur Konfliktanzeige.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>array $rows Liste der Zeitfenster-Zeilen.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>array Liste der ueberlappenden Paare aus je zwei Zeitfenster-Bereichen.</code></div>
+                    
+                    
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-bootstrap-28">
+                <div class="card-header">
+                    <span class="badge badge-kind">bootstrap</span>
+                    <span class="badge badge-file">live_web/_bootstrap.php</span>
+                </div>
+                <h2>live_web.bootstrap</h2>
+                <p class="purpose">Lokalisiert den privaten Anwendungscode und stellt einen sicheren Loader fuer oeffentliche Wrapper-Routen bereit.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>Wird von oeffentlichen PHP-Entry-Points eingebunden.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Umgebungsvariable APP_PRIVATE_ROOT und Dateisystem.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Geladene private PHP-Datei oder HTTP-500 bei Fehlkonfiguration.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Prueft Verzeichnisse und bindet Zielcode ein.</td></tr></tbody></table>
+                
+                <div class="block-group"><h3>Funktionen</h3>
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_web.bootstrap.app_private_root</code></h4>
+                    <p>Lokalisiert den privaten Code ueber die Umgebungsvariable APP_PRIVATE_ROOT oder bekannte Kandidatenpfade.</p>
+                    
+                    <div class="sub-label">Rueckgabe: <code>string Absoluter Pfad zum privaten Wurzelverzeichnis.</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Bricht mit HTTP 500 ab, wenn keine gueltige Wurzel gefunden wird.</div>
+                </div>
+                
+                <div class="sub-block fn-block">
+                    <h4>Funktion: <code>live_web.bootstrap.app_require_private</code></h4>
+                    <p>Kapselt das sichere Einbinden privater Zielrouten fuer oeffentliche Wrapper.</p>
+                    <div class="sub-label">Parameter:</div><ul class="code-list"><li><code>string $relativePath Pfad relativ zum privaten Wurzelverzeichnis.</code></li></ul>
+                    <div class="sub-label">Rueckgabe: <code>void</code></div>
+                    
+                    <div class="note-box"><strong>Hinweis:</strong> Bricht mit HTTP 500 ab, wenn die Zieldatei fehlt.</div>
+                </div>
+                </div>
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-admin-29">
+                <div class="card-header">
+                    <span class="badge badge-kind">entrypoint-proxy</span>
+                    <span class="badge badge-file">live_web/admin.php</span>
+                </div>
+                <h2>live_web.admin</h2>
+                <p class="purpose">Oeffentliche Admin-Route, die an die private Admin-Implementierung weiterreicht.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf auf /admin.php.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bootstrap-Datei und private Zielroute.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Admin-Oberflaeche oder JSON-Antwort der Adminlogik.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Laedt Bootstrap und bindet private Zielseite ein.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/admin.php</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-assets-app-30">
+                <div class="card-header">
+                    <span class="badge badge-kind">frontend-controller</span>
+                    <span class="badge badge-file">live_web/assets/app.js</span>
+                </div>
+                <h2>live_web.assets.app</h2>
+                <p class="purpose">Initialisiert globale UI-Helfer, Modale, Tabellenwerkzeuge und AJAX-Aktionen der Weboberflaeche.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>Browser laedt die zentrale Frontend-Datei.</td></tr><tr><th>Eingaben (@doc-input)</th><td>DOM, Fetch-Endpunkte, LocalStorage und CSS-Klassen.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Interaktive Bedienlogik fuer Admin- und Dashboard-Seiten.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Veraendert DOM, sendet HTTP-Requests und speichert UI-Zustand im Browser.</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>alerts</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Steuert das automatische Ausblenden neuer und bestehender Statusmeldungen.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>display-mode</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Erkennt die verfuegbare Anzeigebreite und markiert die Seite explizit als Mobil- oder Desktopmodus.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>registration-autoscroll</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Scrollt nach dem Laden sanft bis knapp unter das DLRG-Logo, falls der eigentliche Seiteninhalt sonst noch verdeckt waere.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>team-selection</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Steuert die Umschaltung zwischen bestehender Teamauswahl und Eingabe eines neuen Teams.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>modal-base</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Kapselt das generische Oeffnen und Schliessen von Modalen inklusive Fokusfuehrung.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>participant-edit</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Oeffnet die Bearbeitung eines Teilnehmers, befuellt das Formular und uebernimmt Aenderungen per AJAX.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>participant-delete</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Loescht einen Teilnehmer nach Rueckfrage und aktualisiert die Liste direkt im Browser.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>table-state-storage</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Verwaltet den gespeicherten Tabellenzustand fuer Sichtbarkeit und stabile Identifikation pro Tabelle.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>data-table-enhancement</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Erweitert Tabellen um Filter, Sortierung, Spaltenauswahl und Drag-and-drop.</li><li><strong>Seiteneffekte:</strong> Liest und schreibt Tabellenzustand in LocalStorage und veraendert DOM-Struktur.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>admin-navigation</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Schaltet zwischen Admin-Bereichen um, spiegelt den aktiven Abschnitt im URL-Hash und fuellt die Sidebar-Sprungmarken.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>team-management</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Verwaltet Teammitglieder in einem Modal und verbindet Suche, Zuordnung und Entfernen per AJAX.</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>audit-log</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Laedt, filtert, erweitert und loescht Audit-Eintraege in der Admin-Oberflaeche.</li></ul>
+                    
+                </div>
+                </div>
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-assets-style-31">
+                <div class="card-header">
+                    <span class="badge badge-kind">style</span>
+                    <span class="badge badge-file">live_web/assets/style.css</span>
+                </div>
+                <h2>live_web.assets.style</h2>
+                <p class="purpose">Definiert das visuelle Grundlayout der oeffentlichen und internen Weboberflaeche.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>Browser laedt das zentrale Stylesheet.</td></tr><tr><th>Eingaben (@doc-input)</th><td>HTML-Struktur, CSS-Variablen und Komponentenklassen.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Gestylte Layouts, Formulare, Karten und Tabellen.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Beeinflusst Darstellung, Responsivitaet und visuelle Priorisierung.</td></tr></tbody></table>
+                <div class="block-group"><h3>Logikabschnitte &amp; Ablaeufe</h3>
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>admin-shell-layout */</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Strukturiert den oberen Admin-Rahmen in klar getrennte Bereiche fuer Status, Suche und Navigation. */</li></ul>
+                    
+                </div>
+                
+                <div class="sub-block section-block">
+                    <h4>Abschnitt: <code>participant-table-actions */</code></h4>
+                    <ul class="detail-list"><li><strong>Zweck:</strong> Gestaltet die Sticky-Aktionsspalte der Teilnehmer-Tabelle passend zum restlichen Karten- und Tabellenstil. */</li></ul>
+                    
+                </div>
+                </div>
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-dashboard-dashboard-32">
+                <div class="card-header">
+                    <span class="badge badge-kind">entrypoint-proxy</span>
+                    <span class="badge badge-file">live_web/dashboard/dashboard.php</span>
+                </div>
+                <h2>live_web.dashboard.dashboard</h2>
+                <p class="purpose">Oeffentliche Dashboard-Route fuer die interne Live-Uebersicht mit Delegation in die private Anwendung.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf auf /dashboard/dashboard.php.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bootstrap-Datei und private Zielroute.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML des Dashboards.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Laedt Bootstrap und bindet private Zielseite ein.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/dashboard/dashboard.php</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-dashboard-eventlifkiosk-33">
+                <div class="card-header">
+                    <span class="badge badge-kind">entrypoint-proxy</span>
+                    <span class="badge badge-file">live_web/dashboard/eventlifkiosk.php</span>
+                </div>
+                <h2>live_web.dashboard.eventlifkiosk</h2>
+                <p class="purpose">Oeffentliche Dashboard-Kioskroute mit Delegation in die private Anwendung.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf auf /dashboard/eventlifkiosk.php.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bootstrap-Datei und private Zielroute.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML der Dashboard-Kioskansicht.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Laedt Bootstrap und bindet private Zielseite ein.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/dashboard/eventlifkiosk.php</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-dashboard-json_live-34">
+                <div class="card-header">
+                    <span class="badge badge-kind">entrypoint-proxy</span>
+                    <span class="badge badge-file">live_web/dashboard/json_live.php</span>
+                </div>
+                <h2>live_web.dashboard.json_live</h2>
+                <p class="purpose">Oeffentliche JSON-Live-Route fuer Dashboarddaten mit Delegation in die private Anwendung.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf auf /dashboard/json_live.php.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bootstrap-Datei und private Zielroute.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>JSON-Live-Daten fuer Frontends.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Laedt Bootstrap und bindet private Zielseite ein.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/dashboard/json_live.php</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-eventlifkiosk-35">
+                <div class="card-header">
+                    <span class="badge badge-kind">entrypoint-proxy</span>
+                    <span class="badge badge-file">live_web/eventlifkiosk.php</span>
+                </div>
+                <h2>live_web.eventlifkiosk</h2>
+                <p class="purpose">Oeffentliche Route fuer die Event-Live-Kioskansicht mit Delegation in die private Anwendung.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf auf /eventlifkiosk.php.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bootstrap-Datei und private Zielroute.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML der Kioskansicht.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Laedt Bootstrap und bindet private Zielseite ein.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/dashboard/eventlifkiosk.php</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-export-36">
+                <div class="card-header">
+                    <span class="badge badge-kind">entrypoint-proxy</span>
+                    <span class="badge badge-file">live_web/export.php</span>
+                </div>
+                <h2>live_web.export</h2>
+                <p class="purpose">Oeffentliche Export-Route, die in die private Exportlogik delegiert.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf auf /export.php.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bootstrap-Datei und private Zielroute.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Dateidownload oder Exportansicht.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Laedt Bootstrap und bindet private Zielseite ein.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/export.php</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-impressum-37">
+                <div class="card-header">
+                    <span class="badge badge-kind">entrypoint-proxy</span>
+                    <span class="badge badge-file">live_web/impressum.php</span>
+                </div>
+                <h2>live_web.impressum</h2>
+                <p class="purpose">Oeffentliche Impressumsroute, die die private Seitenimplementierung ausliefert.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf auf /impressum.php.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bootstrap-Datei und private Zielroute.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML-Seite mit rechtlichen Informationen.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Laedt Bootstrap und bindet private Zielseite ein.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/impressum.php</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-index-38">
+                <div class="card-header">
+                    <span class="badge badge-kind">entrypoint-proxy</span>
+                    <span class="badge badge-file">live_web/index.php</span>
+                </div>
+                <h2>live_web.index</h2>
+                <p class="purpose">Oeffentliche Startseiten-Route, die in die private Anwendungsimplementierung delegiert.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf auf /index.php.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bootstrap-Datei und private Zielroute.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML der Startseite.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Laedt Bootstrap und bindet private Zielseite ein.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/index.php</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-numbers-39">
+                <div class="card-header">
+                    <span class="badge badge-kind">entrypoint-proxy</span>
+                    <span class="badge badge-file">live_web/numbers.php</span>
+                </div>
+                <h2>live_web.numbers</h2>
+                <p class="purpose">Oeffentliche Route fuer die Startnummernverwaltung mit Delegation in die private Anwendung.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf auf /numbers.php.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bootstrap-Datei und private Zielroute.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML oder Aktionsantworten fuer die Startnummernverwaltung.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Laedt Bootstrap und bindet private Zielseite ein.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/numbers.php</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-sync-40">
+                <div class="card-header">
+                    <span class="badge badge-kind">entrypoint-proxy</span>
+                    <span class="badge badge-file">live_web/sync.php</span>
+                </div>
+                <h2>live_web.sync</h2>
+                <p class="purpose">Oeffentliche Sync-Route, die in die private Sync-Logik delegiert.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf auf /sync.php.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bootstrap-Datei und private Zielroute.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>Vorschau oder Sync-Bericht.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Laedt Bootstrap und bindet private Zielseite ein.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/sync.php</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            <article class="doc-card searchable" id="mod-live_web-timeframes-41">
+                <div class="card-header">
+                    <span class="badge badge-kind">entrypoint-proxy</span>
+                    <span class="badge badge-file">live_web/timeframes.php</span>
+                </div>
+                <h2>live_web.timeframes</h2>
+                <p class="purpose">Oeffentliche Route fuer die Pflege von Zeitfenstern mit Delegation in die private Anwendung.</p>
+                <table class="meta-table"><tbody><tr><th>Einstieg (@doc-entry)</th><td>HTTP-Aufruf auf /timeframes.php.</td></tr><tr><th>Eingaben (@doc-input)</th><td>Bootstrap-Datei und private Zielroute.</td></tr><tr><th>Ausgaben (@doc-output)</th><td>HTML oder Aktionsantworten fuer Zeitfenster.</td></tr><tr><th>Seiteneffekte (@doc-side-effects)</th><td>Laedt Bootstrap und bindet private Zielseite ein.</td></tr><tr><th>Quelle (@doc-source)</th><td>live_app/timeframes.php</td></tr></tbody></table>
+                
+                
+            </article>
+            
+            </section>
+        </main>
+    </div>
+    <script>
+        /**
+         * @doc-ui-flow docs.interaktive_suche_und_tabs
+         * @doc-purpose Steuert Volltextsuche und Tab-Filterung im generierten Offline-HTML-Handbuch.
+         * @doc-ui-step 1 Suchbegriff im Suchfeld eingeben
+         * @doc-ui-target #search-input
+         * @doc-ui-result Nur passende Module und Click-to-Click-Anleitungen bleiben sichtbar
+         * @doc-ui-step 2 Ansicht ueber die Tab-Buttons wechseln
+         * @doc-ui-target #tab-controls
+         * @doc-ui-result Schaltet zwischen Gesamtschau, Bedienungsanleitung und Softwaredoku um
+         */
+        document.addEventListener("DOMContentLoaded", () => {
+            const searchInput = document.getElementById("search-input");
+            const tabButtons = document.querySelectorAll(".tab-btn");
+            const paneManual = document.getElementById("pane-manual");
+            const paneTech = document.getElementById("pane-tech");
+            const cards = document.querySelectorAll(".searchable");
+
+            let activeTab = "all";
+
+            function updateView() {
+                const query = searchInput.value.trim().toLowerCase();
+
+                paneManual.classList.toggle("hidden", activeTab === "tech");
+                paneTech.classList.toggle("hidden", activeTab === "manual");
+
+                cards.forEach(card => {
+                    const matchesQuery = !query || card.textContent.toLowerCase().includes(query);
+                    card.classList.toggle("hidden", !matchesQuery);
+                });
+            }
+
+            searchInput.addEventListener("input", updateView);
+
+            tabButtons.forEach(btn => {
+                btn.addEventListener("click", () => {
+                    tabButtons.forEach(b => b.classList.remove("active"));
+                    btn.classList.add("active");
+                    activeTab = btn.getAttribute("data-tab");
+                    updateView();
+                });
+            });
+
+            document.querySelectorAll(".nav-link").forEach(link => {
+                link.addEventListener("click", () => {
+                    const targetTab = link.getAttribute("data-tab-target");
+                    if (activeTab !== "all" && activeTab !== targetTab) {
+                        const targetBtn = document.querySelector(`.tab-btn[data-tab="${targetTab}"]`);
+                        if (targetBtn) targetBtn.click();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

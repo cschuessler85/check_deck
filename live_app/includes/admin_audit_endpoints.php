@@ -11,17 +11,40 @@
  */
 declare(strict_types=1);
 
+/**
+ * Ermittelt die angeforderte Audit-AJAX-Aktion.
+ *
+ * @doc-function live_app.includes.admin_audit_endpoints.admin_audit_current_ajax_action
+ * @doc-purpose Bestimmt die Audit-Aktion so, dass bei POST-Requests der Body Vorrang vor der URL hat.
+ * @doc-return string Getrimmter Aktionsname oder Leerstring.
+ * @doc-note Bei POST wird $_POST['ajax_action'] vorrangig ausgewertet; $_GET dient nur als Fallback bzw. fuer GET-Requests.
+ *
+ * @return string Getrimmter Aktionsname oder Leerstring.
+ */
 function admin_audit_current_ajax_action(): string
 {
-    if (isset($_GET['ajax_action']) && is_string($_GET['ajax_action'])) {
-        return trim($_GET['ajax_action']);
-    }
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['ajax_action']) && is_string($_POST['ajax_action'])) {
         return trim($_POST['ajax_action']);
+    }
+    if (isset($_GET['ajax_action']) && is_string($_GET['ajax_action'])) {
+        return trim($_GET['ajax_action']);
     }
     return '';
 }
 
+/**
+ * Sendet eine JSON-Antwort mit Statuscode.
+ *
+ * @doc-function live_app.includes.admin_audit_endpoints.admin_audit_json_response
+ * @doc-purpose Kapselt Header, HTTP-Status und JSON-Kodierung fuer alle Audit-Endpunkte.
+ * @doc-param array $payload Zu sendende Antwortdaten.
+ * @doc-param int $statusCode HTTP-Statuscode, Standard 200.
+ * @doc-return void
+ *
+ * @param array $payload Zu sendende Antwortdaten.
+ * @param int $statusCode HTTP-Statuscode, Standard 200.
+ * @return void
+ */
 function admin_audit_json_response(array $payload, int $statusCode = 200): void
 {
     header('Content-Type: application/json');
@@ -29,6 +52,20 @@ function admin_audit_json_response(array $payload, int $statusCode = 200): void
     echo json_encode($payload);
 }
 
+/**
+ * Verarbeitet Audit-AJAX-Aktionen und beendet die Anfrage bei bekannter Aktion.
+ *
+ * @doc-function live_app.includes.admin_audit_endpoints.admin_handle_audit_ajax
+ * @doc-purpose Behandelt Audit-Anzeige und -Loeschaktionen zentral und prueft dabei Rolle und CSRF-Token.
+ * @doc-param PDO $pdo Aktive Datenbankverbindung.
+ * @doc-param array $currentUser Angemeldeter Benutzer mit Rolle.
+ * @doc-return bool True, wenn die Aktion behandelt wurde (Antwort gesendet), sonst false.
+ * @doc-note Unbekannte Aktionen liefern false, damit der Aufrufer normal weiterarbeiten kann.
+ *
+ * @param PDO $pdo Aktive Datenbankverbindung.
+ * @param array $currentUser Angemeldeter Benutzer mit Rolle.
+ * @return bool True, wenn die Aktion behandelt wurde, sonst false.
+ */
 function admin_handle_audit_ajax(PDO $pdo, array $currentUser): bool
 {
     $ajaxAction = admin_audit_current_ajax_action();

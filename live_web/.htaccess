@@ -33,7 +33,9 @@ DirectoryIndex index.php
     </IfModule>
 </FilesMatch>
 
-<FilesMatch "\.(sql|env|ini|log)$">
+# Blockiert Konfigurations-, Datenbank-, Skript- und Dokumentationsdateien im oeffentlichen Webroot.
+# Defense-in-Depth: Quelltext (z. B. Python) und Datentraeger (SQLite) duerfen nie direkt ausgeliefert werden.
+<FilesMatch "\.(sql|sqlite|sqlite3|db|env|ini|log|py|sh|bat|ps1|md)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>

@@ -54,27 +54,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($start < 1 || $end > 999 || $start > $end || $teamname === null || $team_id === null) {
                 $error_msg = 'Ungültige Eingabe für Reservierung.';
             } else {
+                // @doc-note Belegungsprüfung und Reservierung laufen in einer gemeinsamen Transaktion mit Zeilensperre (FOR UPDATE).
                 try {
                     $pdo->beginTransaction();
                     $ins = $pdo->prepare("INSERT IGNORE INTO startnummern (nummer, status) VALUES (?, 'frei')");
                     for ($i = $start; $i <= $end; $i++) {
                         $ins->execute([$i]);
                     }
-                    $pdo->commit();
+                    // @doc-note Sperrt die betroffenen Zeilen und prüft innerhalb der Transaktion, ob Nummern belegt sind.
+                    $check = $pdo->prepare("SELECT nummer FROM startnummern WHERE nummer BETWEEN ? AND ? AND status != 'frei' ORDER BY nummer ASC FOR UPDATE");
+                    $check->execute([$start, $end]);
+                    $belegt = $check->fetchAll(PDO::FETCH_COLUMN) ?: [];
+                    if ($belegt !== []) {
+                        $pdo->rollBack();
+                        $error_msg = 'Einige Nummern in diesem Bereich sind bereits reserviert oder vergeben.';
+                    } else {
+                        $upd = $pdo->prepare("UPDATE startnummern SET status = 'reserviert', reserviert_fuer = ?, team_id = ? WHERE nummer BETWEEN ? AND ?");
+                        $upd->execute([$teamname, $team_id, $start, $end]);
+                        $pdo->commit();
+                        $success_msg = "Nummern $start bis $end erfolgreich für '$teamname' reserviert.";
+                    }
                 } catch (Throwable $e) {
                     if ($pdo->inTransaction()) {
                         $pdo->rollBack();
                     }
-                }
-                // @doc-note Prüft, ob im gewählten Bereich bereits reservierte oder vergebene Nummern liegen.
-                $check = $pdo->prepare("SELECT COUNT(*) FROM startnummern WHERE nummer BETWEEN ? AND ? AND status != 'frei'");
-                $check->execute([$start, $end]);
-                if ($check->fetchColumn() > 0) {
-                    $error_msg = 'Einige Nummern in diesem Bereich sind bereits reserviert oder vergeben.';
-                } else {
-                    $upd = $pdo->prepare("UPDATE startnummern SET status = 'reserviert', reserviert_fuer = ?, team_id = ? WHERE nummer BETWEEN ? AND ?");
-                    $upd->execute([$teamname, $team_id, $start, $end]);
-                    $success_msg = "Nummern $start bis $end erfolgreich für '$teamname' reserviert.";
+                    $error_msg = 'Reservierung fehlgeschlagen.';
                 }
             }
             }
@@ -85,29 +89,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $num = (int)($_POST['nummer'] ?? 0);
             if ($num >= 1 && $num <= 999) {
                 // @doc-note Gibt die Nummer frei und entfernt vorhandene Teilnehmerzuordnungen konsistent mit.
-                $pdo->beginTransaction();
-                
-                // Zuerst Teilnehmer_id finden, um startnummer in teilnehmer zu nullen
-                $find = $pdo->prepare("SELECT teilnehmer_id FROM startnummern WHERE nummer = ?");
-                $find->execute([$num]);
-                $t_id = $find->fetchColumn();
+                try {
+                    $pdo->beginTransaction();
 
-                if (!$t_id) {
-                    $find2 = $pdo->prepare("SELECT id FROM teilnehmer WHERE startnummer = ? LIMIT 1");
-                    $find2->execute([$num]);
-                    $t_id = $find2->fetchColumn();
+                    // @doc-note Zeile in startnummern sperren, bevor teilnehmer_id ausgelesen und zurückgesetzt wird.
+                    $find = $pdo->prepare("SELECT teilnehmer_id FROM startnummern WHERE nummer = ? LIMIT 1 FOR UPDATE");
+                    $find->execute([$num]);
+                    $t_id = $find->fetchColumn();
+
+                    if (!$t_id) {
+                        $find2 = $pdo->prepare("SELECT id FROM teilnehmer WHERE startnummer = ? LIMIT 1");
+                        $find2->execute([$num]);
+                        $t_id = $find2->fetchColumn();
+                    }
+
+                    if ($t_id) {
+                        $updT = $pdo->prepare("UPDATE teilnehmer SET startnummer = NULL WHERE id = ?");
+                        $updT->execute([$t_id]);
+                    }
+
+                    $updS = $pdo->prepare("UPDATE startnummern SET status = 'frei', reserviert_fuer = NULL, team_id = NULL, teilnehmer_id = NULL WHERE nummer = ?");
+                    $updS->execute([$num]);
+
+                    $pdo->commit();
+                    $success_msg = "Startnummer $num wurde freigegeben.";
+                } catch (Throwable $e) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    $error_msg = 'Freigabe fehlgeschlagen.';
                 }
-                
-                if ($t_id) {
-                    $updT = $pdo->prepare("UPDATE teilnehmer SET startnummer = NULL WHERE id = ?");
-                    $updT->execute([$t_id]);
-                }
-                
-                $updS = $pdo->prepare("UPDATE startnummern SET status = 'frei', reserviert_fuer = NULL, team_id = NULL, teilnehmer_id = NULL WHERE nummer = ?");
-                $updS->execute([$num]);
-                
-                $pdo->commit();
-                $success_msg = "Startnummer $num wurde freigegeben.";
             }
             }
         } elseif ($action === 'assign') {
@@ -117,29 +128,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $num = (int)($_POST['nummer'] ?? 0);
             $t_id = (int)($_POST['t_id'] ?? 0);
             if ($num >= 1 && $num <= 999 && $t_id > 0) {
-                $pdo->beginTransaction();
-
-                $ins = $pdo->prepare("INSERT IGNORE INTO startnummern (nummer, status) VALUES (?, 'frei')");
-                $ins->execute([$num]);
-
-                $find = $pdo->prepare("SELECT startnummer FROM teilnehmer WHERE id = ?");
-                $find->execute([$t_id]);
-                $old_num = $find->fetchColumn();
-
-                if ($old_num) {
-                    $updOld = $pdo->prepare("UPDATE startnummern SET status = 'frei', reserviert_fuer = NULL, team_id = NULL, teilnehmer_id = NULL WHERE nummer = ?");
-                    $updOld->execute([$old_num]);
+                // @doc-note Zuweisung erfolgt atomar inkl. Konfliktprüfung, Freigabe der alten Nummer und Zahlungsmarkierung.
+                try {
+                    assign_startnummer($pdo, $t_id, null, $num, true);
+                    $success_msg = "Startnummer $num wurde erfolgreich zugewiesen.";
+                } catch (RuntimeException $e) {
+                    $error_msg = $e->getMessage();
+                } catch (Throwable $e) {
+                    $error_msg = 'Zuweisung fehlgeschlagen.';
                 }
-
-                $updNew = $pdo->prepare("UPDATE startnummern SET status = 'vergeben', teilnehmer_id = ?, reserviert_fuer = NULL, team_id = NULL WHERE nummer = ?");
-                $updNew->execute([$t_id, $num]);
-
-                // @doc-note Eine manuelle Nummernzuweisung markiert offene Teilnehmer zugleich als bezahlt.
-                $updT = $pdo->prepare("UPDATE teilnehmer SET startnummer = ?, bezahlt = 1, bezahlt_am = COALESCE(bezahlt_am, NOW()) WHERE id = ?");
-                $updT->execute([$num, $t_id]);
-
-                $pdo->commit();
-                $success_msg = "Startnummer $num wurde erfolgreich zugewiesen.";
             }
             }
         }
@@ -168,16 +165,9 @@ try {
     $_SESSION['startnummern_init_attempted_at'] = time();
 }
 
-try {
-    $pdo->exec("
-        UPDATE startnummern s
-        INNER JOIN teilnehmer t ON t.startnummer = s.nummer
-        SET s.status = 'vergeben', s.teilnehmer_id = t.id, s.reserviert_fuer = NULL, s.team_id = NULL
-        WHERE t.startnummer IS NOT NULL AND t.startnummer <> 0
-          AND (s.teilnehmer_id IS NULL OR s.teilnehmer_id = 0)
-    ");
-} catch (Throwable $e) {
-}
+// @doc-note Befund B3: Das frühere ungeprüfte Reparatur-UPDATE bei jedem GET wurde entfernt.
+//           Die Konsistenz zwischen startnummern und teilnehmer wird jetzt ausschließlich über die
+//           atomare Vergabe assign_startnummer() sowie das Migrationsskript hergestellt.
 
 // @doc-section numbers-data-loading
 // @doc-purpose Lädt Nummernbestand, Teamreservierungen und freie Zuordnungsdaten für die Seite.

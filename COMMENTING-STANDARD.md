@@ -59,6 +59,44 @@ Fuer UI-Flows werden Click-to-Click-Anleitungen ueber folgende Marker beschriebe
 - `@doc-ui-target <selector oder element-id>`: Betroffenes Element.
 - `@doc-ui-result <text>`: Erwartetes sichtbares Ergebnis.
 
+### Funktions-DocBlocks
+
+Funktionen erhalten einen DocBlock, der maschinenlesbare `@doc-`-Tags mit den klassischen
+PHPDoc-Tags kombiniert, damit sowohl eigene Parser als auch IDEs und Doku-Generatoren
+die Signatur vollstaendig auswerten koennen.
+
+Pflichtfelder (maschinenlesbar):
+
+- `@doc-function <id>`: Stabiler Funktionsbezeichner in Punktnotation nach `@doc-id` der Datei plus Funktionsname.
+- `@doc-purpose <text>`: Fachlicher Zweck der Funktion in einem Satz (warum, nicht nur was).
+- `@doc-param <typ> <name> <text>`: Beschreibung eines Parameters in Deklarationsreihenfolge.
+- `@doc-return <typ> <text>`: Beschreibung des Rueckgabewerts.
+- `@doc-throws <typ> <text>`: Beschreibung einer geworfenen Ausnahme (nur wenn die Funktion wirft).
+
+Optionale Felder:
+
+- `@doc-note <text>`: Randbedingungen, Invarianten, Sperren oder Sicherheitshinweise.
+
+Zusaetzlich werden die klassischen PHPDoc-Tags `@param`, `@return` und `@throws` gepflegt.
+Reihenfolge innerhalb des DocBlocks ist fest: zuerst alle `@doc-`-Tags, danach die PHPDoc-Tags.
+
+```php
+/**
+ * @doc-function live_app.includes.functions.assign_startnummer
+ * @doc-purpose Weist einem Teilnehmer transaktionssicher eine Startnummer zu.
+ * @doc-param PDO $pdo MySQL-Verbindung.
+ * @doc-param int $teilnehmer_id ID des Ziel-Teilnehmers.
+ * @doc-return int|null Vergebene Nummer oder null.
+ * @doc-throws RuntimeException Wenn die Wunschnummer bereits vergeben ist.
+ * @doc-note Eigene Transaktion nur, wenn der Aufrufer keine aktiv hat.
+ *
+ * @param PDO $pdo MySQL-Verbindung.
+ * @param int $teilnehmer_id ID des Ziel-Teilnehmers.
+ * @return int|null Vergebene Nummer oder null.
+ * @throws RuntimeException Wenn die Wunschnummer bereits vergeben ist.
+ */
+```
+
 ## Extraktionsregeln
 
 - Parser sollen nur Zeilen mit `@doc-` auswerten.
@@ -105,7 +143,7 @@ Fuer UI-Flows werden Click-to-Click-Anleitungen ueber folgende Marker beschriebe
 ```python
 """
 @doc-file
-@doc-id live_web.merge_schwimmerdaten
+@doc-id live_app.scripts.merge_schwimmerdaten
 @doc-kind cli-script
 @doc-purpose Fuehrt CSV-Stammdaten und JSON-Eventlog zu einer aktualisierten Ausgabedatei zusammen.
 @doc-entry CLI-Aufruf ueber Python

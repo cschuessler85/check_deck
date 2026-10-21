@@ -1235,12 +1235,12 @@ if (isset($_GET['format']) && (string)$_GET['format'] === 'json') {
                 }
                 var columns = resolveColumns(type);
                 var headHtml = columns.map(function (column) {
-                    var thClass = column.thClass ? (' class="' + column.thClass + '"') : '';
+                    var thClass = column.thClass ? (' class="' + esc(column.thClass) + '"') : '';
                     return '<th' + thClass + '>' + esc(column.label) + '</th>';
                 }).join('');
                 var bodyHtml = items.map(function (item, index) {
                     var cells = columns.map(function (column) {
-                        var tdClass = column.tdClass ? (' class="' + column.tdClass + '"') : '';
+                        var tdClass = column.tdClass ? (' class="' + esc(column.tdClass) + '"') : '';
                         return '<td' + tdClass + '>' + column.render(item, index, currentData || {}) + '</td>';
                     }).join('');
                     return '<tr>' + cells + '</tr>';

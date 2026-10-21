@@ -53,6 +53,15 @@ if (isset($_GET['format']) && (string)$_GET['format'] === 'json') {
     exit;
 }
 
+/**
+ * @doc-function live_app.timeframes.tf_dt_local_date
+ * @doc-purpose Formatiert einen Datenbank-Zeitstempel als lokales Datum fuer Formularfelder.
+ * @doc-param string|null $dbValue Datenbankwert oder null.
+ * @doc-return string Datum im Format Y-m-d oder Leerstring.
+ *
+ * @param string|null $dbValue Datenbankwert oder null.
+ * @return string Datum im Format Y-m-d oder Leerstring.
+ */
 function tf_dt_local_date(?string $dbValue): string
 {
     if (!is_string($dbValue) || trim($dbValue) === '') {
@@ -65,6 +74,15 @@ function tf_dt_local_date(?string $dbValue): string
     return date('Y-m-d', $ts);
 }
 
+/**
+ * @doc-function live_app.timeframes.tf_dt_local_time
+ * @doc-purpose Formatiert einen Datenbank-Zeitstempel als lokale Uhrzeit fuer Formularfelder.
+ * @doc-param string|null $dbValue Datenbankwert oder null.
+ * @doc-return string Uhrzeit im Format H:i oder Leerstring.
+ *
+ * @param string|null $dbValue Datenbankwert oder null.
+ * @return string Uhrzeit im Format H:i oder Leerstring.
+ */
 function tf_dt_local_time(?string $dbValue): string
 {
     if (!is_string($dbValue) || trim($dbValue) === '') {
@@ -77,6 +95,15 @@ function tf_dt_local_time(?string $dbValue): string
     return date('H:i', $ts);
 }
 
+/**
+ * @doc-function live_app.timeframes.tf_dt_display
+ * @doc-purpose Formatiert einen Datenbank-Zeitstempel menschenlesbar fuer die Tabellenansicht.
+ * @doc-param string|null $dbValue Datenbankwert oder null.
+ * @doc-return string Datum im Format d.m.Y H:i, '-' bei leerem Wert oder Originalwert bei ungueltigem Datum.
+ *
+ * @param string|null $dbValue Datenbankwert oder null.
+ * @return string Datum im Format d.m.Y H:i, '-' bei leerem Wert oder Originalwert bei ungueltigem Datum.
+ */
 function tf_dt_display(?string $dbValue): string
 {
     if (!is_string($dbValue) || trim($dbValue) === '') {
@@ -89,6 +116,19 @@ function tf_dt_display(?string $dbValue): string
     return date('d.m.Y H:i', $ts);
 }
 
+/**
+ * @doc-function live_app.timeframes.tf_dt_db
+ * @doc-purpose Setzt Datum und Uhrzeit zu einem internen Datenbank-Zeitstempel zusammen.
+ * @doc-param string $dateValue Datumswert aus dem Formular.
+ * @doc-param string $timeValue Uhrzeitwert aus dem Formular.
+ * @doc-param bool $isEnd Kennzeichnet die Endzeit; dann wird die letzte Minute (:59) gesetzt.
+ * @doc-return string|null Zeitstempel im Format Y-m-d H:i:s oder null bei fehlenden oder ungueltigen Werten.
+ *
+ * @param string $dateValue Datumswert aus dem Formular.
+ * @param string $timeValue Uhrzeitwert aus dem Formular.
+ * @param bool $isEnd Kennzeichnet die Endzeit; dann wird die letzte Minute (:59) gesetzt.
+ * @return string|null Zeitstempel im Format Y-m-d H:i:s oder null bei fehlenden oder ungueltigen Werten.
+ */
 function tf_dt_db(string $dateValue, string $timeValue, bool $isEnd = false): ?string
 {
     $dateValue = trim($dateValue);
@@ -106,11 +146,29 @@ function tf_dt_db(string $dateValue, string $timeValue, bool $isEnd = false): ?s
     return date('Y-m-d H:i:s', $ts);
 }
 
+/**
+ * @doc-function live_app.timeframes.tf_escape
+ * @doc-purpose Wandelt einen Rohwert HTML-sicher fuer die Zeitfensteransicht um.
+ * @doc-param string $value Rohwert.
+ * @doc-return string HTML-escaped Wert.
+ *
+ * @param string $value Rohwert.
+ * @return string HTML-escaped Wert.
+ */
 function tf_escape(string $value): string
 {
     return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 }
 
+/**
+ * @doc-function live_app.timeframes.tf_row_overlap
+ * @doc-purpose Ermittelt Paare sich ueberlappender aktiver Zeitfenster zur Konfliktanzeige.
+ * @doc-param array $rows Liste der Zeitfenster-Zeilen.
+ * @doc-return array Liste der ueberlappenden Paare aus je zwei Zeitfenster-Bereichen.
+ *
+ * @param array $rows Liste der Zeitfenster-Zeilen.
+ * @return array Liste der ueberlappenden Paare aus je zwei Zeitfenster-Bereichen.
+ */
 function tf_row_overlap(array $rows): array
 {
     $active = array_values(array_filter($rows, static function ($row): bool {

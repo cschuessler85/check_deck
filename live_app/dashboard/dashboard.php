@@ -32,6 +32,15 @@ if ($rootBase === '/') {
 $can_numbers = auth_can($pdo, 'numbers.read');
 $can_export = auth_can($pdo, 'exports.participants');
  
+/**
+ * @doc-function live_app.dashboard.dashboard.dash_dt
+ * @doc-purpose Formatiert einen Datenbank-Zeitstempel als deutsches Datum mit Uhrzeit fuer die Dashboard-Anzeige.
+ * @doc-param ?string $value Roher Zeitstempelwert; null oder leer ergibt einen Platzhalter.
+ * @doc-return string Formatiertes Datum "d.m.Y H:i" oder ein Platzhalterzeichen bei ungueltigem Wert.
+ *
+ * @param ?string $value Roher Zeitstempelwert; null oder leer ergibt einen Platzhalter.
+ * @return string Formatiertes Datum "d.m.Y H:i" oder ein Platzhalterzeichen bei ungueltigem Wert.
+ */
 function dash_dt(?string $value): string
 {
     if (!is_string($value) || trim($value) === '') {

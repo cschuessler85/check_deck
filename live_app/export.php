@@ -27,6 +27,12 @@ $canDashboardPage = auth_can($pdo, 'participants.read');
 $canNumbersPage = auth_can($pdo, 'numbers.read');
 
 /**
+ * @doc-function live_app.export.export_get_team_options
+ * @doc-purpose Laedt alle Teams als Auswahlliste fuer die Exportfilter.
+ * @doc-param PDO $pdo Aktive Datenbankverbindung.
+ * @doc-return list<array{id:int,name:string}> Liste der Teams mit ID und Name, sortiert nach Name.
+ *
+ * @param PDO $pdo Aktive Datenbankverbindung.
  * @return list<array{id:int,name:string}>
  */
 function export_get_team_options(PDO $pdo): array
@@ -46,8 +52,15 @@ function export_get_team_options(PDO $pdo): array
 }
 
 /**
- * @param list<array{id:int,name:string}> $teamOptions
- * @return list<array{value:string,label:string}>
+ * @doc-function live_app.export.export_build_team_filter_options
+ * @doc-purpose Baut die Auswahloptionen fuer den Teamfilter inklusive "Alle" und optional "Ohne Team".
+ * @doc-param list<array{id:int,name:string}> $teamOptions Liste der Teams mit ID und Name.
+ * @doc-param bool $withNone Fuegt die Option "Ohne Team" hinzu, Standard true.
+ * @doc-return list<array{value:string,label:string}> Liste der Filteroptionen aus Wert und Beschriftung.
+ *
+ * @param list<array{id:int,name:string}> $teamOptions Liste der Teams mit ID und Name.
+ * @param bool $withNone Fuegt die Option "Ohne Team" hinzu, Standard true.
+ * @return list<array{value:string,label:string}> Liste der Filteroptionen aus Wert und Beschriftung.
  */
 function export_build_team_filter_options(array $teamOptions, bool $withNone = true): array
 {
@@ -70,8 +83,13 @@ function export_build_team_filter_options(array $teamOptions, bool $withNone = t
 }
 
 /**
- * @param list<array{id:int,name:string}> $teamOptions
- * @return array<string, array<string, mixed>>
+ * @doc-function live_app.export.export_get_sources
+ * @doc-purpose Liefert die Konfiguration aller Exportquellen samt Spalten, Filtern und Standardwerten.
+ * @doc-param list<array{id:int,name:string}> $teamOptions Liste der Teams fuer die Teamfilteroptionen.
+ * @doc-return array<string, array<string, mixed>> Konfigurationsarray je Datenquelle.
+ *
+ * @param list<array{id:int,name:string}> $teamOptions Liste der Teams fuer die Teamfilteroptionen.
+ * @return array<string, array<string, mixed>> Konfigurationsarray je Datenquelle.
  */
 function export_get_sources(array $teamOptions): array
 {
@@ -483,11 +501,29 @@ function export_get_sources(array $teamOptions): array
     ];
 }
 
+/**
+ * @doc-function live_app.export.export_html
+ * @doc-purpose Wandelt einen Rohwert HTML-sicher fuer die Exportansicht um.
+ * @doc-param string $value Rohwert.
+ * @doc-return string HTML-escaped Wert.
+ *
+ * @param string $value Rohwert.
+ * @return string HTML-escaped Wert.
+ */
 function export_html(string $value): string
 {
     return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 }
 
+/**
+ * @doc-function live_app.export.export_csv_safe
+ * @doc-purpose Neutralisiert CSV-Formeleinschleusung, indem Werte mit fuehrendem =, +, - oder @ entschaerft werden.
+ * @doc-param string $value Rohwert fuer die CSV-Zelle.
+ * @doc-return string Abgesicherter Wert ohne Formelinjektion.
+ *
+ * @param string $value Rohwert fuer die CSV-Zelle.
+ * @return string Abgesicherter Wert ohne Formelinjektion.
+ */
 function export_csv_safe(string $value): string
 {
     if ($value !== '' && in_array($value[0], ['=', '+', '-', '@'], true)) {
@@ -498,8 +534,17 @@ function export_csv_safe(string $value): string
 }
 
 /**
- * @param array<string, mixed> $column
- * @param array<string, mixed> $row
+ * @doc-function live_app.export.export_format_value
+ * @doc-purpose Formatiert einen Zellwert anhand der Spaltenkonfiguration und eines optionalen Formatters.
+ * @doc-param array<string, mixed> $column Spaltenkonfiguration mit optionalem formatter.
+ * @doc-param array<string, mixed> $row Datenzeile mit allen Rohwerten.
+ * @doc-param string $key Schluessel der Spalte in der Datenzeile.
+ * @doc-return string Formatierter Wert als String.
+ *
+ * @param array<string, mixed> $column Spaltenkonfiguration mit optionalem formatter.
+ * @param array<string, mixed> $row Datenzeile mit allen Rohwerten.
+ * @param string $key Schluessel der Spalte in der Datenzeile.
+ * @return string Formatierter Wert als String.
  */
 function export_format_value(array $column, array $row, string $key): string
 {
@@ -517,7 +562,15 @@ function export_format_value(array $column, array $row, string $key): string
 }
 
 /**
- * @param array<string, array<string, mixed>> $sources
+ * @doc-function live_app.export.export_pick_source
+ * @doc-purpose Waehlt die angeforderte Datenquelle oder faellt auf die erste verfuegbare zurueck.
+ * @doc-param array<string, array<string, mixed>> $sources Konfiguration aller verfuegbaren Datenquellen.
+ * @doc-param string|null $requested Angeforderter Quellenschluessel oder null.
+ * @doc-return string Gueltiger Quellenschluessel.
+ *
+ * @param array<string, array<string, mixed>> $sources Konfiguration aller verfuegbaren Datenquellen.
+ * @param string|null $requested Angeforderter Quellenschluessel oder null.
+ * @return string Gueltiger Quellenschluessel.
  */
 function export_pick_source(array $sources, ?string $requested): string
 {
@@ -529,9 +582,17 @@ function export_pick_source(array $sources, ?string $requested): string
 }
 
 /**
- * @param array<string, mixed> $source
- * @param list<string> $requestedColumns
- * @return list<string>
+ * @doc-function live_app.export.export_pick_columns
+ * @doc-purpose Ermittelt die gueltigen, deduplizierten und in Wunschreihenfolge sortierten Exportspalten.
+ * @doc-param array<string, mixed> $source Konfiguration der gewaehlten Quelle.
+ * @doc-param list<string> $requestedColumns Vom Benutzer angeforderte Spaltenschluessel.
+ * @doc-param string|null $columnOrder Kommaseparierte Wunschreihenfolge oder null.
+ * @doc-return list<string> Gueltige Spaltenschluessel in Ausgabereihenfolge.
+ *
+ * @param array<string, mixed> $source Konfiguration der gewaehlten Quelle.
+ * @param list<string> $requestedColumns Vom Benutzer angeforderte Spaltenschluessel.
+ * @param string|null $columnOrder Kommaseparierte Wunschreihenfolge oder null.
+ * @return list<string> Gueltige Spaltenschluessel in Ausgabereihenfolge.
  */
 function export_pick_columns(array $source, array $requestedColumns, ?string $columnOrder): array
 {
@@ -566,7 +627,17 @@ function export_pick_columns(array $source, array $requestedColumns, ?string $co
 }
 
 /**
- * @param array<string, mixed> $source
+ * @doc-function live_app.export.export_pick_sort_field
+ * @doc-purpose Waehlt ein gueltiges Sortierfeld der Quelle oder faellt auf den Standard-Schluessel zurueck.
+ * @doc-param array<string, mixed> $source Konfiguration der gewaehlten Quelle.
+ * @doc-param string|null $requested Angefordertes Sortierfeld oder null.
+ * @doc-param string $fallbackKey Standard-Sortierfeld bei ungueltiger Angabe.
+ * @doc-return string Gueltiger Spaltenschluessel fuer die Sortierung.
+ *
+ * @param array<string, mixed> $source Konfiguration der gewaehlten Quelle.
+ * @param string|null $requested Angefordertes Sortierfeld oder null.
+ * @param string $fallbackKey Standard-Sortierfeld bei ungueltiger Angabe.
+ * @return string Gueltiger Spaltenschluessel fuer die Sortierung.
  */
 function export_pick_sort_field(array $source, ?string $requested, string $fallbackKey): string
 {
@@ -578,6 +649,17 @@ function export_pick_sort_field(array $source, ?string $requested, string $fallb
     return $fallbackKey;
 }
 
+/**
+ * @doc-function live_app.export.export_pick_sort_direction
+ * @doc-purpose Normalisiert die Sortierrichtung auf ASC oder DESC und nutzt sonst den Standardwert.
+ * @doc-param string|null $requested Angeforderte Richtung oder null.
+ * @doc-param string $fallback Standardrichtung bei ungueltiger Angabe.
+ * @doc-return string 'ASC' oder 'DESC'.
+ *
+ * @param string|null $requested Angeforderte Richtung oder null.
+ * @param string $fallback Standardrichtung bei ungueltiger Angabe.
+ * @return string 'ASC' oder 'DESC'.
+ */
 function export_pick_sort_direction(?string $requested, string $fallback): string
 {
     $value = strtoupper((string)$requested);
@@ -589,9 +671,15 @@ function export_pick_sort_direction(?string $requested, string $fallback): strin
 }
 
 /**
- * @param array<string, mixed> $source
- * @param array<string, mixed> $requestFilters
- * @return array<string, string>
+ * @doc-function live_app.export.export_pick_filters
+ * @doc-purpose Bereinigt die angefragten Filterwerte durch Auswahlpruefung bzw. Laengenbegrenzung und liefert die aktiven Filter.
+ * @doc-param array<string, mixed> $source Konfiguration der gewaehlten Quelle.
+ * @doc-param array<string, mixed> $requestFilters Vom Benutzer uebergebene Filterwerte.
+ * @doc-return array<string, string> Bereinigte Filterwerte je Filterschluessel.
+ *
+ * @param array<string, mixed> $source Konfiguration der gewaehlten Quelle.
+ * @param array<string, mixed> $requestFilters Vom Benutzer uebergebene Filterwerte.
+ * @return array<string, string> Bereinigte Filterwerte je Filterschluessel.
  */
 function export_pick_filters(array $source, array $requestFilters): array
 {
@@ -623,10 +711,27 @@ function export_pick_filters(array $source, array $requestFilters): array
 }
 
 /**
- * @param array<string, mixed> $source
- * @param list<string> $selectedColumns
- * @param array<string, string> $selectedFilters
- * @return array{sql:string,params:array<string,mixed>}
+ * @doc-function live_app.export.export_build_query
+ * @doc-purpose Baut aus Quelle, Spalten, Filtern und Sortierung das parametrisierte SELECT-Statement.
+ * @doc-param array<string, mixed> $source Konfiguration der gewaehlten Quelle.
+ * @doc-param list<string> $selectedColumns Auszugebende Spaltenschluessel.
+ * @doc-param array<string, string> $selectedFilters Aktive Filterwerte je Filterschluessel.
+ * @doc-param string|null $sort1 Primaeres Sortierfeld oder null.
+ * @doc-param string $dir1 Sortierrichtung des ersten Feldes.
+ * @doc-param string|null $sort2 Sekundaeres Sortierfeld oder null.
+ * @doc-param string $dir2 Sortierrichtung des zweiten Feldes.
+ * @doc-param int|null $limit Optionale Zeilenbegrenzung.
+ * @doc-return array{sql:string,params:array<string,mixed>} SQL-String und zugehoerige Parameter.
+ *
+ * @param array<string, mixed> $source Konfiguration der gewaehlten Quelle.
+ * @param list<string> $selectedColumns Auszugebende Spaltenschluessel.
+ * @param array<string, string> $selectedFilters Aktive Filterwerte je Filterschluessel.
+ * @param string|null $sort1 Primaeres Sortierfeld oder null.
+ * @param string $dir1 Sortierrichtung des ersten Feldes.
+ * @param string|null $sort2 Sekundaeres Sortierfeld oder null.
+ * @param string $dir2 Sortierrichtung des zweiten Feldes.
+ * @param int|null $limit Optionale Zeilenbegrenzung.
+ * @return array{sql:string,params:array<string,mixed>} SQL-String und zugehoerige Parameter.
  */
 function export_build_query(array $source, array $selectedColumns, array $selectedFilters, ?string $sort1, string $dir1, ?string $sort2, string $dir2, ?int $limit = null): array
 {
@@ -681,7 +786,15 @@ function export_build_query(array $source, array $selectedColumns, array $select
 }
 
 /**
- * @param array<string, mixed> $query
+ * @doc-function live_app.export.export_execute_query
+ * @doc-purpose Fuehrt die vorbereitete Exportabfrage aus und liefert das Ergebnisstatement.
+ * @doc-param PDO $pdo Aktive Datenbankverbindung.
+ * @doc-param array<string, mixed> $query Abfrage mit den Schluesseln sql und params.
+ * @doc-return PDOStatement Ausgefuehrtes Statement zum Abrufen der Zeilen.
+ *
+ * @param PDO $pdo Aktive Datenbankverbindung.
+ * @param array<string, mixed> $query Abfrage mit den Schluesseln sql und params.
+ * @return PDOStatement Ausgefuehrtes Statement zum Abrufen der Zeilen.
  */
 function export_execute_query(PDO $pdo, array $query): PDOStatement
 {

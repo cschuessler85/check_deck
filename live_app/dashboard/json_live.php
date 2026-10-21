@@ -36,6 +36,15 @@ if (isset($_GET['format']) && (string)$_GET['format'] === 'json') {
     exit;
 }
 
+/**
+ * @doc-function live_app.dashboard.json_live.json_live_html
+ * @doc-purpose Wandelt einen Wert HTML-sicher fuer die Live-Ausgabe um.
+ * @doc-param string $value Rohwert.
+ * @doc-return string HTML-escaped Wert.
+ *
+ * @param string $value Rohwert.
+ * @return string HTML-escaped Wert.
+ */
 function json_live_html(string $value): string
 {
     return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');

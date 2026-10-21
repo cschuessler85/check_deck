@@ -77,32 +77,36 @@ if (isset($_GET['logout']) && (string)$_GET['logout'] === '1') {
 
 // @doc-section login-processing
 // @doc-purpose Prueft Login-Versuche fuer reguläre Benutzer und optionale Recovery-Pfade.
-if (!$is_logged_in && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    $u = (string)($_POST['login_username'] ?? '');
-    $p = (string)($_POST['login_password'] ?? '');
-    if (auth_login_with_credentials($pdo, $u, $p)) {
-        header('Location: admin.php');
-        exit;
-    }
-    if ($setup_mode) {
-        $login_error = 'Es existiert noch kein Benutzer. Lege zuerst per CLI einen Admin an.';
-    } elseif (!$users_enabled) {
-        $login_error = 'Nutzerverwaltung ist aktuell nicht verfügbar.';
-    } elseif ($allow_setup_password) {
-        $setupPassword = (string)($_POST['password'] ?? '');
-        $setupHash = admin_password_hash_default();
-        if ($setupPassword !== '' && $setupHash !== '' && password_verify($setupPassword, $setupHash)) {
-            admin_login();
+if (!$is_logged_in && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !isset($_POST['webauthn_action'])) {
+    if (!csrf_token_verify($_POST['csrf_token'] ?? null)) {
+        $login_error = 'Sicherheitsprüfung fehlgeschlagen. Bitte Seite neu laden und erneut versuchen.';
+    } else {
+        $u = (string)($_POST['login_username'] ?? '');
+        $p = (string)($_POST['login_password'] ?? '');
+        if (auth_login_with_credentials($pdo, $u, $p)) {
             header('Location: admin.php');
             exit;
         }
-        if ($setupHash === '') {
-            $login_error = 'Recovery ist aktiviert, aber ADMIN_SETUP_PASSWORD fehlt.';
+        if ($setup_mode) {
+            $login_error = 'Es existiert noch kein Benutzer. Lege zuerst per CLI einen Admin an.';
+        } elseif (!$users_enabled) {
+            $login_error = 'Nutzerverwaltung ist aktuell nicht verfügbar.';
+        } elseif ($allow_setup_password) {
+            $setupPassword = (string)($_POST['password'] ?? '');
+            $setupHash = admin_password_hash_default();
+            if ($setupPassword !== '' && $setupHash !== '' && password_verify($setupPassword, $setupHash)) {
+                admin_login();
+                header('Location: admin.php');
+                exit;
+            }
+            if ($setupHash === '') {
+                $login_error = 'Recovery ist aktiviert, aber ADMIN_SETUP_PASSWORD fehlt.';
+            } else {
+                $login_error = 'Benutzername/Passwort oder Recovery-Passwort ist falsch.';
+            }
         } else {
-            $login_error = 'Benutzername/Passwort oder Recovery-Passwort ist falsch.';
+            $login_error = 'Benutzername oder Passwort ist falsch.';
         }
-    } else {
-        $login_error = 'Benutzername oder Passwort ist falsch.';
     }
 }
 
@@ -110,9 +114,20 @@ if (!$is_logged_in && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 // @doc-purpose Biometrische Anmeldung per WebAuthn (Fingerabdruck/Gesicht).
 if (!$is_logged_in && isset($_POST['webauthn_action']) && $_POST['webauthn_action'] === 'login_challenge') {
     header('Content-Type: application/json');
+    if (!csrf_token_verify($_POST['csrf_token'] ?? null)) {
+        echo json_encode(['success' => false, 'error' => 'Sicherheitsprüfung fehlgeschlagen. Bitte Seite neu laden und erneut versuchen.']);
+        exit;
+    }
     $username = trim((string)($_POST['username'] ?? ''));
     if ($username === '') {
         echo json_encode(['success' => false, 'error' => 'Benutzername erforderlich.']);
+        exit;
+    }
+    // @doc-note Brute-Force-Schutz: derselbe Lockout wie beim Passwort-Login greift auch fuer Biometrie.
+    $ip = auth_login_client_ip();
+    $lockInfo = auth_login_is_locked($ip, $username);
+    if ($lockInfo['locked']) {
+        echo json_encode(['success' => false, 'error' => 'Zu viele Fehlversuche. Bitte später erneut versuchen.']);
         exit;
     }
     try {
@@ -120,7 +135,9 @@ if (!$is_logged_in && isset($_POST['webauthn_action']) && $_POST['webauthn_actio
         $stmt->execute([$username]);
         $creds = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (count($creds) === 0) {
-            echo json_encode(['success' => false, 'error' => 'Keine biometrischen Anmeldedaten für diesen Benutzer gefunden.']);
+            // @doc-note Fehlversuch zaehlen und neutral antworten, um User-Enumeration zu erschweren.
+            auth_login_record_failure($ip, $username);
+            echo json_encode(['success' => false, 'error' => 'Biometrische Anmeldung ist für diesen Benutzer nicht verfügbar.']);
             exit;
         }
         $challenge = webauthn_generate_challenge();
@@ -147,6 +164,10 @@ if (!$is_logged_in && isset($_POST['webauthn_action']) && $_POST['webauthn_actio
 
 if (!$is_logged_in && isset($_POST['webauthn_action']) && $_POST['webauthn_action'] === 'login') {
     header('Content-Type: application/json');
+    if (!csrf_token_verify($_POST['csrf_token'] ?? null)) {
+        echo json_encode(['success' => false, 'error' => 'Sicherheitsprüfung fehlgeschlagen. Bitte Seite neu laden und erneut versuchen.']);
+        exit;
+    }
     $challenge = (string)($_SESSION['webauthn_login_challenge'] ?? '');
     $credId = (string)($_POST['credential_id'] ?? '');
     $clientDataJSON = webauthn_base64url_decode((string)($_POST['client_data_json'] ?? ''));
@@ -165,14 +186,27 @@ if (!$is_logged_in && isset($_POST['webauthn_action']) && $_POST['webauthn_actio
             echo json_encode(['success' => false, 'error' => 'Anmeldedaten nicht gefunden.']);
             exit;
         }
+        // @doc-note Lockout greift auch hier, damit die Signaturpruefung nicht umgangen werden kann.
+        $ip = auth_login_client_ip();
+        $username = (string)($row['username'] ?? '');
+        $lockInfo = auth_login_is_locked($ip, $username);
+        if ($lockInfo['locked']) {
+            echo json_encode(['success' => false, 'error' => 'Zu viele Fehlversuche. Bitte später erneut versuchen.']);
+            exit;
+        }
         $valid = webauthn_verify_authentication($credId, $clientDataJSON, $authenticatorData, $signature, (string)$row['public_key'], $challenge);
         if (!$valid) {
+            // @doc-note Fehlversuche werden wie beim Passwort-Login aufgezeichnet.
+            auth_login_record_failure($ip, $username);
             echo json_encode(['success' => false, 'error' => 'Biometrische Anmeldung fehlgeschlagen.']);
             exit;
         }
         $upd = $pdo->prepare('UPDATE webauthn_credentials SET last_used_at = NOW() WHERE id = ?');
         $upd->execute([(int)$row['cred_id']]);
+        // @doc-note Session-Fixation vermeiden: neue Session-ID wie beim Passwort-Login.
+        session_regenerate_id(true);
         auth_set_session((int)$row['user_id'], (string)$row['username'], (string)$row['role']);
+        auth_login_clear_attempts($ip, $username);
         echo json_encode(['success' => true, 'redirect' => 'admin.php']);
     } catch (Throwable $e) {
         echo json_encode(['success' => false, 'error' => 'Fehler bei der biometrischen Anmeldung.']);
@@ -197,6 +231,10 @@ if ($is_logged_in) {
     // @doc-purpose Registrierung eines biometrischen Schlüssels für den aktuell eingeloggten Benutzer.
     if (isset($_POST['webauthn_action']) && $_POST['webauthn_action'] === 'register_challenge') {
         header('Content-Type: application/json');
+        if (!csrf_token_verify($_POST['csrf_token'] ?? null)) {
+            echo json_encode(['success' => false, 'error' => 'Sicherheitsprüfung fehlgeschlagen. Bitte Seite neu laden und erneut versuchen.']);
+            exit;
+        }
         $uid = (int)($current_user['id'] ?? 0);
         if ($uid <= 0) {
             echo json_encode(['success' => false, 'error' => 'Nicht verfügbar für diesen Login-Typ.']);
@@ -225,6 +263,10 @@ if ($is_logged_in) {
 
     if (isset($_POST['webauthn_action']) && $_POST['webauthn_action'] === 'register') {
         header('Content-Type: application/json');
+        if (!csrf_token_verify($_POST['csrf_token'] ?? null)) {
+            echo json_encode(['success' => false, 'error' => 'Sicherheitsprüfung fehlgeschlagen. Bitte Seite neu laden und erneut versuchen.']);
+            exit;
+        }
         $challenge = (string)($_SESSION['webauthn_register_challenge'] ?? '');
         $clientDataJSON = webauthn_base64url_decode((string)($_POST['client_data_json'] ?? ''));
         $attestationObject = webauthn_base64url_decode((string)($_POST['attestation_object'] ?? ''));
@@ -426,33 +468,18 @@ if ($is_logged_in) {
         }
 
         $t_id = (int)$teilnehmer['id'];
-        $nummer_to_assign = null;
+        $team_id = isset($teilnehmer['team_id']) ? (int)$teilnehmer['team_id'] : null;
 
-        // @doc-note Prueft vor der Buchung zuerst Wunschnummer oder alternativ die vorgeschlagene freie Nummer.
-        if ($wunschnummer > 0) {
-            $check = $pdo->prepare("SELECT status FROM startnummern WHERE nummer = ?");
-            $check->execute([$wunschnummer]);
-            if ($check->fetchColumn() === 'vergeben') {
-                 echo json_encode(['success' => false, 'error' => "Startnummer $wunschnummer ist bereits vergeben."]);
-                 exit;
-            }
-            $nummer_to_assign = $wunschnummer;
-        } else {
-            $team_id = isset($teilnehmer['team_id']) ? (int)$teilnehmer['team_id'] : null;
-            $nummer_to_assign = get_next_startnummer_suggestion($pdo, $team_id && $team_id > 0 ? $team_id : null);
+        // @doc-note Ermittlung der Nummer und Zahlungsmarkierung erfolgen atomar in einer geschuetzten Transaktion.
+        try {
+            $nummer_to_assign = assign_startnummer($pdo, $t_id, $team_id && $team_id > 0 ? $team_id : null, $wunschnummer, true);
+        } catch (RuntimeException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            exit;
+        } catch (Throwable $e) {
+            echo json_encode(['success' => false, 'error' => 'Buchung fehlgeschlagen.']);
+            exit;
         }
-
-        $pdo->beginTransaction();
-        $upd = $pdo->prepare('UPDATE teilnehmer SET bezahlt = 1, bezahlt_am = NOW() WHERE id = ?');
-        $upd->execute([$t_id]);
-
-        if ($nummer_to_assign && !$teilnehmer['startnummer']) {
-            $updS = $pdo->prepare("UPDATE startnummern SET status = 'vergeben', teilnehmer_id = ?, reserviert_fuer = NULL, team_id = NULL WHERE nummer = ?");
-            $updS->execute([$t_id, $nummer_to_assign]);
-            $updT = $pdo->prepare("UPDATE teilnehmer SET startnummer = ? WHERE id = ?");
-            $updT->execute([$nummer_to_assign, $t_id]);
-        }
-        $pdo->commit();
 
         $find = $pdo->prepare('SELECT bezahlt_am FROM teilnehmer WHERE id = ? LIMIT 1');
         $find->execute([$t_id]);
@@ -495,29 +522,16 @@ if ($is_logged_in) {
             exit;
         }
 
-        // @doc-note Prueft vor dem Umhaengen, ob die neue Startnummer noch verfuegbar ist.
-        $check = $pdo->prepare("SELECT status FROM startnummern WHERE nummer = ?");
-        $check->execute([$neue_nummer]);
-        $status = $check->fetchColumn();
-
-        if ($status === 'vergeben') {
-            echo json_encode(['success' => false, 'error' => 'Nummer ' . $neue_nummer . ' ist bereits vergeben.']);
+        // @doc-note Teilnehmer und Zielnummer werden in einer Transaktion gesperrt; alte Nummer wird mit freigegeben.
+        try {
+            assign_startnummer($pdo, $t_id, null, $neue_nummer, false);
+        } catch (RuntimeException $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+            exit;
+        } catch (Throwable $e) {
+            echo json_encode(['success' => false, 'error' => 'Umhaengen fehlgeschlagen.']);
             exit;
         }
-
-        $pdo->beginTransaction();
-        // Alte Nummer freigeben
-        if ($alte_nummer) {
-            $updAlt = $pdo->prepare("UPDATE startnummern SET status = 'frei', reserviert_fuer = NULL, team_id = NULL, teilnehmer_id = NULL WHERE nummer = ?");
-            $updAlt->execute([$alte_nummer]);
-        }
-        // Neue Nummer vergeben
-        $updNeu = $pdo->prepare("UPDATE startnummern SET status = 'vergeben', teilnehmer_id = ?, reserviert_fuer = NULL, team_id = NULL WHERE nummer = ?");
-        $updNeu->execute([$t_id, $neue_nummer]);
-
-        $updT = $pdo->prepare("UPDATE teilnehmer SET startnummer = ? WHERE id = ?");
-        $updT->execute([$neue_nummer, $t_id]);
-        $pdo->commit();
 
         echo json_encode(['success' => true, 'message' => 'Startnummer erfolgreich auf ' . str_pad((string)$neue_nummer, 3, '0', STR_PAD_LEFT) . ' geändert.', 'startnummer' => $neue_nummer]);
         exit;
@@ -1209,22 +1223,17 @@ if ($is_logged_in) {
                 } else {
                     $t_id = (int)$teilnehmer['id'];
                     $team_id = isset($teilnehmer['team_id']) ? (int)$teilnehmer['team_id'] : null;
-                    $nummer_to_assign = get_next_startnummer_suggestion($pdo, $team_id && $team_id > 0 ? $team_id : null);
 
-                    $pdo->beginTransaction();
-                    $upd = $pdo->prepare('UPDATE teilnehmer SET bezahlt = 1, bezahlt_am = NOW() WHERE id = ?');
-                    $upd->execute([$t_id]);
-
-                    if ($nummer_to_assign && !$teilnehmer['startnummer']) {
-                        $updS = $pdo->prepare("UPDATE startnummern SET status = 'vergeben', teilnehmer_id = ?, reserviert_fuer = NULL, team_id = NULL WHERE nummer = ?");
-                        $updS->execute([$t_id, $nummer_to_assign]);
-                        $updT = $pdo->prepare("UPDATE teilnehmer SET startnummer = ? WHERE id = ?");
-                        $updT->execute([$nummer_to_assign, $t_id]);
+                    // @doc-note Nummernvergabe und Zahlungsmarkierung laufen atomar in einer geschuetzten Transaktion.
+                    try {
+                        $nummer_to_assign = assign_startnummer($pdo, $t_id, $team_id && $team_id > 0 ? $team_id : null, 0, true);
+                        $sn_text = $nummer_to_assign ? str_pad((string)$nummer_to_assign, 3, '0', STR_PAD_LEFT) : 'Keine freie Nummer';
+                        $cash_success = 'Als bezahlt markiert. Startnummer: ' . $sn_text;
+                    } catch (RuntimeException $e) {
+                        $cash_error = $e->getMessage();
+                    } catch (Throwable $e) {
+                        $cash_error = 'Buchung fehlgeschlagen.';
                     }
-                    $pdo->commit();
-
-                    $sn_text = $nummer_to_assign ? str_pad((string)$nummer_to_assign, 3, '0', STR_PAD_LEFT) : 'Keine freie Nummer';
-                    $cash_success = 'Als bezahlt markiert. Startnummer: ' . $sn_text;
                 }
             }
         }
@@ -1516,14 +1525,18 @@ if ($can_manage_users) {
         border-color: rgba(255, 237, 0, 0.22);
       }
 
-      /* @doc-note Admin-Panel nutzt die volle Viewport-Höhe, nur Inhaltsbereiche scrollen intern. */
+      /* @doc-note Desktop-Shell: Die Seite selbst scrollt nie, nur der Inhalts-Frame scrollt intern.
+       * Die Hoehenkette laeuft ausschliesslich ueber Flex/Grid, damit sich Logo, Header und
+       * Sidebar den verbleibenden Viewport-Platz teilen und nichts unter den Viewport laeuft. */
       body.admin-page {
         height: 100vh;
+        height: 100dvh;
         overflow: hidden;
       }
 
       body.admin-page > .page {
         height: 100%;
+        min-height: 0;
         display: flex;
         flex-direction: column;
         padding: 0;
@@ -1536,8 +1549,11 @@ if ($can_manage_users) {
         flex-direction: column;
         border-radius: 0;
         border: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
       }
 
+      body.admin-page .app-logo-bar,
       body.admin-page .reg-header {
         flex: 0 0 auto;
       }
@@ -1548,23 +1564,52 @@ if ($can_manage_users) {
       }
 
       body.admin-page .admin-page-sidebar {
-        height: 100%;
+        min-height: 0;
         max-height: none;
         overflow-y: auto;
       }
 
       body.admin-page .admin-page-main {
-        height: 100%;
+        min-height: 0;
         overflow: hidden;
       }
 
       body.admin-page .admin-content-frame {
-        height: 100%;
+        min-height: 0;
       }
 
       body.admin-page .admin-content-scroll {
         overflow-y: auto;
         overflow-x: hidden;
+      }
+
+      /* @doc-note Unterseiten (< 1280px): Einspaltige Ansicht, die Seite scrollt als Ganzes. */
+      @media (max-width: 1279px) {
+        body.admin-page {
+          height: auto;
+          min-height: 100vh;
+          overflow-y: auto;
+        }
+
+        body.admin-page > .page {
+          height: auto;
+          min-height: 100vh;
+        }
+
+        body.admin-page > .page > .container {
+          overflow: visible;
+        }
+
+        body.admin-page .admin-page-sidebar {
+          max-height: none;
+          overflow-y: visible;
+        }
+
+        body.admin-page .admin-page-main,
+        body.admin-page .admin-content-frame,
+        body.admin-page .admin-content-scroll {
+          overflow: visible;
+        }
       }
 
       .admin-session-actions {
@@ -1619,10 +1664,9 @@ if ($can_manage_users) {
 
       .admin-page-sidebar {
         min-width: 0;
-        align-self: start;
-        position: sticky;
-        top: 12px;
-        max-height: calc(100vh - 24px);
+        min-height: 0;
+        align-self: stretch;
+        position: static;
         overflow-y: auto;
         scrollbar-width: thin;
       }
@@ -1669,10 +1713,12 @@ if ($can_manage_users) {
 
       .admin-page-main {
         min-width: 0;
+        min-height: 0;
         display: grid;
+        grid-template-rows: minmax(0, 1fr);
         gap: var(--spacing-base);
-        align-content: start;
-        align-self: start;
+        align-content: stretch;
+        align-self: stretch;
       }
 
       .admin-content-frame {
@@ -2150,6 +2196,14 @@ if ($can_manage_users) {
         color: var(--muted);
       }
 
+      /* @doc-note Die Unterseiten-Bereiche liegen als Grid mit einheitlichem Abstand untereinander. */
+      #admin_internal_frame {
+        display: grid;
+        gap: var(--spacing-base);
+        align-content: start;
+        min-width: 0;
+      }
+
       #admin_internal_frame > .panel,
       #admin_internal_frame > .alert {
         position: relative;
@@ -2224,7 +2278,8 @@ if ($can_manage_users) {
           display: grid;
           grid-template-columns: minmax(var(--admin-sidebar-min), var(--admin-sidebar-width)) 14px minmax(0, 1fr);
           gap: 20px;
-          align-items: start;
+          align-items: stretch;
+          min-height: 0;
         }
 
         .admin-page .admin-page-sidebar {
@@ -2233,10 +2288,9 @@ if ($can_manage_users) {
         }
 
         .admin-page .admin-page-sidebar .admin-shell-panel {
-          position: sticky;
-          top: 12px;
-          max-height: calc(100vh - 24px);
-          overflow: auto;
+          position: static;
+          max-height: none;
+          overflow: visible;
         }
 
         .admin-page .admin-page-main {
@@ -2245,7 +2299,6 @@ if ($can_manage_users) {
 
         .admin-page-main {
           gap: 18px;
-          min-height: calc(100vh - 24px);
         }
 
         .admin-page-main > .panel {
@@ -2253,12 +2306,14 @@ if ($can_manage_users) {
         }
 
         .admin-content-frame {
-          min-height: calc(100vh - 24px);
-          max-height: calc(100vh - 24px);
+          min-height: 0;
+          max-height: none;
+          height: 100%;
         }
 
         .admin-content-scroll {
-          overflow: auto;
+          overflow-y: auto;
+          overflow-x: hidden;
           padding-right: 4px;
         }
 
@@ -2328,6 +2383,11 @@ if ($can_manage_users) {
       }
 
       @media (max-width: 1279px) {
+        /* @doc-note Unter 1280px ist die Shell einspaltig; die Sidebar wird per Menue eingeblendet. */
+        .admin-page .admin-page-shell {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
         .admin-page .admin-mobile-menu-toggle {
           display: inline-flex;
           width: auto;
@@ -2766,6 +2826,79 @@ if ($can_manage_users) {
           width: 100%;
         }
       }
+
+      /* @doc-section admin-layout-natural-flow */
+      /* @doc-purpose Stellt den Admin-Bereich auf natuerlichen Seitenfluss um: Alle Bereiche
+       * wachsen mit ihrem Inhalt und sind per Seiten-Scroll vollstaendig sichtbar, statt in
+       * einem festen Viewport-Rahmen beschnitten zu werden. Das Logo bleibt als schmaler,
+       * sticky Streifen am oberen Rand stehen. */
+      /* @doc-ui-flow admin-layout-natural-flow */
+      /* @doc-ui-step 1 Der schmale Logo-Streifen bleibt beim Scrollen oben fixiert. */
+      /* @doc-ui-step 2 Navigation und Inhalte wachsen mit ihrer Hoehe, die Seite scrollt normal. */
+      /* @doc-ui-result Kein Abschnitt wird mehr durch einen festen Viewport-Rahmen abgeschnitten. */
+      body.admin-page {
+        /* @doc-note Zentrale Breite des Logo-Streifens; fuer ein groesseres Logo hier erhoehen. */
+        --admin-logo-strip-width: 5rem;
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+      }
+
+      body.admin-page > .page {
+        height: auto;
+        min-height: 100vh;
+      }
+
+      body.admin-page > .page > .container {
+        overflow: visible;
+      }
+
+      /* @doc-note Kompakter Logo-Streifen: minimales Padding, schmale Bandhoehe. */
+      body.admin-page .app-logo-bar {
+        padding: 0.25rem 0.75rem;
+        margin-bottom: 0.5rem;
+      }
+
+      body.admin-page .app-logo-bar .reg-logo {
+        width: auto;
+        min-width: 0;
+        max-width: var(--admin-logo-strip-width);
+      }
+
+      body.admin-page .page-shell.admin-page-shell {
+        flex: 0 0 auto;
+        min-height: 0;
+      }
+
+      body.admin-page .admin-page-sidebar {
+        position: static;
+        top: auto;
+        min-height: 0;
+        max-height: none;
+        overflow: visible;
+        align-self: start;
+      }
+
+      body.admin-page .admin-page-main {
+        grid-template-rows: auto;
+        min-height: 0;
+        overflow: visible;
+      }
+
+      body.admin-page .admin-content-frame {
+        min-height: 0;
+        max-height: none;
+        height: auto;
+      }
+
+      body.admin-page .admin-content-scroll {
+        overflow: visible;
+      }
+
+      body.admin-page .admin-content-iframe {
+        min-height: 720px;
+        height: auto;
+      }
     </style>
   </head>
   <body class="admin-page">
@@ -2790,7 +2923,7 @@ if ($can_manage_users) {
           <div class="panel">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
               <h2 style="margin:0;">Login</h2>
-              <button type="button" class="btn btn-secondary" id="theme_toggle" aria-pressed="false" title="Wechselt zwischen hellem und dunklem Design">
+              <button type="button" class="btn btn-secondary" data-theme-toggle="1" aria-pressed="false" title="Wechselt zwischen hellem und dunklem Design">
                 <span class="admin-session-action-icon" aria-hidden="true">&#9790;</span>
                 <span class="admin-session-action-label">Dunkelmodus</span>
               </button>
@@ -2799,7 +2932,7 @@ if ($can_manage_users) {
               Zugriff nur für berechtigte Personen.
             </p>
 
-            <div class="<?php echo $login_mode_alert_class; ?>">
+            <div class="<?php echo escape($login_mode_alert_class); ?>">
               <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
                 <div><strong>Modus:</strong> <?php echo escape($login_mode_label); ?></div>
                 <div><strong>Basic‑Auth:</strong> <?php echo $basic_auth_detected ? 'erkannt' : 'nicht erkannt'; ?></div>
@@ -2821,6 +2954,7 @@ if ($can_manage_users) {
             <?php endif; ?>
 
             <form class="reg-form" method="post" action="admin.php">
+              <input type="hidden" name="csrf_token" value="<?php echo escape(csrf_token_get()); ?>" />
               <div class="field">
                 <label for="login_username">Benutzername</label>
                 <input id="login_username" name="login_username" type="text" <?php echo $allow_setup_password ? '' : 'required'; ?> autofocus />
@@ -2929,7 +3063,7 @@ if ($can_manage_users) {
                       <div class="admin-links-grid">
                         <?php if ($can_dashboard_page): ?>
                           <a class="btn btn-secondary admin-link-btn" href="dashboard/dashboard.php" target="_blank" rel="noopener noreferrer" data-admin-frame-url="dashboard/dashboard.php" data-admin-frame-title="Dashboard">Dashboard</a>
-                          <a class="btn btn-secondary admin-link-btn" href="eventlifkiosk.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="eventlifkiosk.php" data-admin-frame-title="Event Live Kiosk">Event Kiosk</a>
+                          <a class="btn btn-secondary admin-link-btn" href="dashboard/eventlifkiosk.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="dashboard/eventlifkiosk.php" data-admin-frame-title="Event Live Kiosk">Event Kiosk</a>
                         <?php endif; ?>
                         <?php if ($can_numbers_page): ?>
                           <a class="btn btn-secondary admin-link-btn" href="numbers.php?standalone=1" target="_blank" rel="noopener noreferrer" data-admin-frame-url="numbers.php" data-admin-frame-title="Startnummern">Startnummern</a>
@@ -2974,7 +3108,7 @@ if ($can_manage_users) {
                     <div class="admin-side-group-head">
                     </div>
                     <div class="admin-session-actions">
-                      <button type="button" class="btn btn-secondary" id="theme_toggle" aria-pressed="false">
+                      <button type="button" class="btn btn-secondary" data-theme-toggle="1" aria-pressed="false">
                         <span class="admin-session-action-icon" aria-hidden="true">&#9790;</span>
                         <span class="admin-session-action-label">Dunkelmodus</span>
                       </button>
@@ -3092,11 +3226,11 @@ if ($can_manage_users) {
                     </div>
                     <div class="field">
                       <label for="profile_new_password">Neues Passwort</label>
-                      <input id="profile_new_password" name="new_password" type="password" required minlength="8" />
+                      <input id="profile_new_password" name="new_password" type="password" required minlength="12" />
                     </div>
                     <div class="field">
                       <label for="profile_new_password_confirm">Neues Passwort (Wiederholung)</label>
-                      <input id="profile_new_password_confirm" name="new_password_confirm" type="password" required minlength="8" />
+                      <input id="profile_new_password_confirm" name="new_password_confirm" type="password" required minlength="12" />
                     </div>
                   </div>
                   <div class="actions">
@@ -3218,7 +3352,7 @@ if ($can_manage_users) {
               </div>
             </div>
 
-            <div class="panel admin-anchor-target" id="settings_language" data-admin-anchor-label="Sprache" style="margin-top:12px;">
+            <div class="panel admin-anchor-target" id="settings_language_panel" data-admin-anchor-label="Sprache" style="margin-top:12px;">
               <h3 style="margin:0 0 10px 0;">Sprache</h3>
               <div class="field" style="max-width:320px;">
                 <label for="settings_language">Oberflächensprache</label>
@@ -3969,9 +4103,9 @@ if ($can_manage_users) {
       // @doc-section cashier-client
       // @doc-purpose Steuert Kasseninteraktion, QR-Scan, Suchtrefferaufbau und Zahlungsaktionen im eingebetteten Admin-Skript.
       document.addEventListener('DOMContentLoaded', () => {
-        const themeToggleBtn = document.getElementById('theme_toggle');
-        const themeToggleLabel = themeToggleBtn ? themeToggleBtn.querySelector('.admin-session-action-label') : null;
-        const themeToggleIcon = themeToggleBtn ? themeToggleBtn.querySelector('.admin-session-action-icon') : null;
+        // @doc-note Alle Theme-Toggle-Buttons (Login-Panel und eingeloggter Bereich) werden ueber ein
+        //           Datenattribut gebündelt, damit keine doppelte ID mehr noetig ist und alle Buttons synchron bleiben.
+        const themeToggleBtns = Array.from(document.querySelectorAll('[data-theme-toggle]'));
         const themeKey = 'admin_theme';
         const adminShell = document.getElementById('admin_page_shell');
         const adminSidebar = document.getElementById('admin_page_sidebar');
@@ -3986,24 +4120,29 @@ if ($can_manage_users) {
               localStorage.setItem(themeKey, next);
             } catch (e) {}
           }
-          if (themeToggleBtn) {
-            themeToggleBtn.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+          // @doc-note Alle vorhandenen Theme-Toggle-Buttons werden synchron aktualisiert.
+          themeToggleBtns.forEach((btn) => {
+            btn.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
             // @doc-note Das Button-Label zeigt bewusst den jeweils verfuegbaren Wechsel an, nicht das aktuelle Theme.
-            if (themeToggleLabel) {
-              themeToggleLabel.textContent = next === 'dark' ? 'Hellmodus' : 'Dunkelmodus';
+            const label = btn.querySelector('.admin-session-action-label');
+            if (label) {
+              label.textContent = next === 'dark' ? 'Hellmodus' : 'Dunkelmodus';
             } else {
-              themeToggleBtn.textContent = next === 'dark' ? 'Hellmodus' : 'Dunkelmodus';
+              btn.textContent = next === 'dark' ? 'Hellmodus' : 'Dunkelmodus';
             }
-            if (themeToggleIcon) {
-              themeToggleIcon.innerHTML = next === 'dark' ? '&#9728;' : '&#9790;';
+            const icon = btn.querySelector('.admin-session-action-icon');
+            if (icon) {
+              icon.innerHTML = next === 'dark' ? '&#9728;' : '&#9790;';
             }
-          }
+          });
           window.dispatchEvent(new CustomEvent('admin-theme-changed', { detail: { theme: next } }));
         };
-        if (themeToggleBtn) {
-          themeToggleBtn.addEventListener('click', () => {
-            const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
-            setTheme(current === 'dark' ? 'light' : 'dark', true);
+        if (themeToggleBtns.length > 0) {
+          themeToggleBtns.forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const current = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+              setTheme(current === 'dark' ? 'light' : 'dark', true);
+            });
           });
           const initial = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
           setTheme(initial, false);
@@ -4536,10 +4675,10 @@ if ($can_manage_users) {
                 frameRoot.style.setProperty('--admin-btn-font-size', `${btnFontSize}px`);
               }
 
-              const themeToggle = frameDoc.getElementById('theme_toggle');
-              if (themeToggle) {
-                themeToggle.hidden = true;
-              }
+              // @doc-note Theme-Toggle im eingebetteten Frame ausblenden; die Steuerung uebernimmt der Rahmen.
+              frameDoc.querySelectorAll('#theme_toggle, [data-theme-toggle]').forEach((el) => {
+                el.hidden = true;
+              });
 
               if (!frameDoc.getElementById('admin_embedded_frame_style')) {
                 const frameStyle = frameDoc.createElement('style');
@@ -5501,6 +5640,9 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
       };
       const waStrToBytes = (s) => new TextEncoder().encode(s);
 
+      // @doc-note CSRF-Token fuer alle WebAuthn-fetch()-Requests aus dem Meta-Tag lesen.
+      const waCsrfToken = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+
       const waLoginBtn = document.getElementById('webauthn_login_btn');
       const waLoginStatus = document.getElementById('webauthn_login_status');
       if (waLoginBtn) {
@@ -5518,6 +5660,7 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
             const fd = new FormData();
             fd.append('webauthn_action', 'login_challenge');
             fd.append('username', username);
+            fd.append('csrf_token', waCsrfToken);
             const res = await fetch('admin.php', { method: 'POST', body: fd });
             const data = await res.json();
             if (!data.success) {
@@ -5537,6 +5680,7 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
             });
             const fd2 = new FormData();
             fd2.append('webauthn_action', 'login');
+            fd2.append('csrf_token', waCsrfToken);
             fd2.append('credential_id', waB64urlEncode(new Uint8Array(assertion.rawId)));
             fd2.append('client_data_json', waB64urlEncode(new Uint8Array(assertion.response.clientDataJSON)));
             fd2.append('authenticator_data', waB64urlEncode(new Uint8Array(assertion.response.authenticatorData)));
@@ -5566,6 +5710,7 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
           try {
             const fd = new FormData();
             fd.append('webauthn_action', 'register_challenge');
+            fd.append('csrf_token', waCsrfToken);
             const res = await fetch('admin.php', { method: 'POST', body: fd });
             const data = await res.json();
             if (!data.success) {
@@ -5588,6 +5733,7 @@ html[data-admin-embedded-frame="true"][data-theme="dark"] .participant-actions-w
             const credName = (document.getElementById('webauthn_credential_name') || {}).value || '';
             const fd2 = new FormData();
             fd2.append('webauthn_action', 'register');
+            fd2.append('csrf_token', waCsrfToken);
             fd2.append('client_data_json', waB64urlEncode(new Uint8Array(cred.response.clientDataJSON)));
             fd2.append('attestation_object', waB64urlEncode(new Uint8Array(cred.response.attestationObject)));
             fd2.append('credential_name', credName);
