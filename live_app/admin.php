@@ -12,6 +12,7 @@
 require_once __DIR__ . '/includes/db_connect.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/admin_audit_endpoints.php';
+require_once __DIR__ . '/includes/live_sync.php';
 
 // @doc-section logout-and-entry
 // @doc-purpose Behandelt fruehe Admin-Einstiege wie Logout, bevor weitere Controller-Logik ausgefuehrt wird.
@@ -481,6 +482,9 @@ if ($is_logged_in) {
             exit;
         }
 
+        // @doc-note Bruecke sofort ausloesen: bezahlter Teilnehmer landet unmittelbar in der SQLite-Tabelle schwimmer.
+        live_sync_run_safe($pdo);
+
         $find = $pdo->prepare('SELECT bezahlt_am FROM teilnehmer WHERE id = ? LIMIT 1');
         $find->execute([$t_id]);
         $row = $find->fetch(PDO::FETCH_ASSOC);
@@ -532,6 +536,9 @@ if ($is_logged_in) {
             echo json_encode(['success' => false, 'error' => 'Umhaengen fehlgeschlagen.']);
             exit;
         }
+
+        // @doc-note Nummernwechsel sofort in die Live-Datenbank spiegeln, damit der Lane Counter die Nummer unmittelbar erhaelt.
+        live_sync_run_safe($pdo);
 
         echo json_encode(['success' => true, 'message' => 'Startnummer erfolgreich auf ' . str_pad((string)$neue_nummer, 3, '0', STR_PAD_LEFT) . ' geändert.', 'startnummer' => $neue_nummer]);
         exit;
@@ -1233,6 +1240,11 @@ if ($is_logged_in) {
                         $cash_error = $e->getMessage();
                     } catch (Throwable $e) {
                         $cash_error = 'Buchung fehlgeschlagen.';
+                    }
+
+                    // @doc-note Bruecke sofort ausloesen: der Kassiervorgang erscheint unmittelbar in der Live-Datenbank (schwimmer).
+                    if ($cash_success !== '') {
+                        live_sync_run_safe($pdo);
                     }
                 }
             }

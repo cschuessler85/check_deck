@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/db_connect.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/live_sync.php';
 
 if (!auth_can($pdo, 'participants.read')) {
     http_response_code(403);
@@ -28,6 +29,9 @@ if ($rootBase === '/') {
 }
 $selfHref = basename($scriptPath) ?: 'event_live.php';
 $isStandalone = isset($_GET['standalone']) && (string)$_GET['standalone'] === '1';
+
+// @doc-note Fallback: Live-Daten hoechstens 60 Sekunden alt halten, falls kein sofortiger Sync ausgeloest wurde.
+live_sync_ensure_fresh($pdo, 60);
 
 $data = event_live_load_overview($pdo);
 

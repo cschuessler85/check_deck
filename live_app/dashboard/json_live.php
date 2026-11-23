@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/db_connect.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/live_sync.php';
 
 if (!auth_can($pdo, 'participants.read')) {
     http_response_code(403);
@@ -26,6 +27,9 @@ $rootBase = rtrim(str_replace('\\', '/', dirname($dir)), '/');
 if ($rootBase === '/') {
     $rootBase = '';
 }
+
+// @doc-note Fallback: Live-Daten hoechstens 60 Sekunden alt halten, falls kein sofortiger Sync ausgeloest wurde.
+live_sync_ensure_fresh($pdo, 60);
 
 $data = live_load_overview($pdo);
 

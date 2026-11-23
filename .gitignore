@@ -45,6 +45,9 @@ live_app/storage/logs/*.log
 # Laufzeitartefakte der Schema-Migration (Marker- und Lock-Datei)
 live_app/storage/.schema_v2.migrated
 live_app/storage/.schema_v2.lock
+# Laufzeitartefakte der Live-Bruecke (Sync-Marker und Lock)
+live_sync.last
+live_sync.lock
 *.log
 
 # --- SQL-Dumps ---
